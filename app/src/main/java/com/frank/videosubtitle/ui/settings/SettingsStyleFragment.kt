@@ -3,9 +3,11 @@ package com.frank.videosubtitle.ui.settings
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
+import androidx.core.view.doOnLayout
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -142,67 +144,75 @@ class SettingsStyleFragment :
     }
 
     private fun renderPreview(s: AppSettings) {
+        // Preview represents a 1080x720 video frame; defer until the container
+        // is laid out so we know the exact pixel scale.
+        val previewHeightPx = binding.previewContainer.height
+        if (previewHeightPx <= 0) {
+            binding.previewContainer.doOnLayout { renderPreview(s) }
+            return
+        }
+        // ASS-style font size and ASS margins are interpreted as pixels on a
+        // 720-tall video frame. Scale them to the preview's actual pixel size.
+        val scale = previewHeightPx / REFERENCE_VIDEO_HEIGHT_PX
+
         binding.previewMain.apply {
-            textSize = s.fontSize.toFloat()
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, s.fontSize * scale)
             setTextColor(s.fontColor.argb)
             setShadowOutline(s.outline)
         }
         binding.previewTranslated.apply {
-            textSize = s.fontSizeTranslated.toFloat()
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, s.fontSizeTranslated * scale)
             setTextColor(s.fontColorTranslated.argb)
             setShadowOutline(s.outlineTranslated)
         }
 
-        // Translate alignment + offsets onto the FrameLayout child positioning.
         val container = binding.previewTextContainer
         val bg = binding.previewSubtitleBg
         val gravity = when (s.alignment) {
             SubtitleAlignment.TopCenter -> Gravity.CENTER_HORIZONTAL or Gravity.TOP
             else -> Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
         }
-        // Scale ASS pixel margins down to dp-friendly preview values; 1 ASS px ≈ 0.5 dp here.
-        val previewMarginV = (s.marginV * 0.5f).toInt()
-        val previewMarginH = (s.marginH * 0.5f).toInt()
+        val previewMarginVPx = (s.marginV * scale).toInt()
+        val previewMarginHPx = (s.marginH * scale).toInt()
         listOf(container, bg).forEach { v ->
             val lp = v.layoutParams as FrameLayout.LayoutParams
             lp.gravity = gravity
-            val baseV = dp(16)
-            val baseH = dp(16)
             if (s.alignment == SubtitleAlignment.TopCenter) {
-                lp.topMargin = baseV + dp(previewMarginV)
+                lp.topMargin = previewMarginVPx
                 lp.bottomMargin = 0
             } else {
-                lp.bottomMargin = baseV + dp(previewMarginV)
+                lp.bottomMargin = previewMarginVPx
                 lp.topMargin = 0
             }
-            // marginH > 0 → push right (smaller right margin, bigger left margin).
-            // ASS treats MarginL/MarginR independently from center alignment, but
-            // for the preview we collapse to a single horizontal offset.
-            lp.leftMargin = baseH + dp(maxOf(0, previewMarginH))
-            lp.rightMargin = baseH + dp(maxOf(0, -previewMarginH))
+            // marginH > 0 → push right (larger left margin); inverse for negative.
+            lp.leftMargin = maxOf(0, previewMarginHPx)
+            lp.rightMargin = maxOf(0, -previewMarginHPx)
             v.layoutParams = lp
         }
 
-        // Background box: sized to match the text container, faded by opacity.
         if (s.background) {
             bg.isVisible = true
             val alpha = (s.backgroundOpacity.coerceIn(0, 100) * 255 / 100)
+            val padPx = (8 * scale).toInt()
             val drawable = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(4).toFloat()
+                cornerRadius = (4 * scale)
                 setColor(Color.argb(alpha, 0, 0, 0))
             }
             bg.background = drawable
-            // Match the text container's width/height once it lays out.
             container.post {
                 val lp = bg.layoutParams as FrameLayout.LayoutParams
-                lp.width = container.width + dp(16)
-                lp.height = container.height + dp(8)
+                lp.width = container.width + padPx * 2
+                lp.height = container.height + padPx
                 bg.layoutParams = lp
             }
         } else {
             bg.isVisible = false
         }
+    }
+
+    private companion object {
+        const val REFERENCE_VIDEO_HEIGHT_PX = 720f
     }
 
     private fun android.widget.TextView.setShadowOutline(enabled: Boolean) {
@@ -213,6 +223,4 @@ class SettingsStyleFragment :
         }
     }
 
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density).toInt()
 }
