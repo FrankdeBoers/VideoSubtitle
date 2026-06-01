@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Android application `com.frank.videosubtitle` (VideoSubtitle). Goal: pick a local video → generate subtitles on-device with Whisper → burn subtitles back into the video with FFmpeg.
 
-**Current state: end of Phase 3** — Phase 1 + audio extraction via FFmpegKit (`6.0.LTS`, sourced from Aliyun/HuaweiCloud Maven mirrors after FFmpegKit was archived from Maven Central) + Whisper transcription via vendored `whisper.cpp` v1.7.5 built as `libwhisper.so` (NDK 26.3.11579264 / CMake 3.22.1, arm64-v8a + armeabi-v7a). `TaskOrchestrator.start(taskId, model)` chains extract → transcribe; `ProgressFragment` shows model-status (download/ready) plus per-stage progress. SRT serialization at `data/source/local/SrtSerializer`, model download at `DefaultModelRepository` (OkHttp Range + SHA-256). Editor / burn still pending (Phase 4 / 5).
+**Current state: end of Phase 4** — Phase 1–3 + segment editor. After transcription `TranscribeAudioUseCase` writes `subtitle.srt` and a one-shot `subtitle.original.srt` snapshot. `EditorFragment`/`EditorViewModel` (`ui/editor/`) load segments via `SrtSerializer`, render through `SegmentAdapter` (ListAdapter+DiffUtil), and offer per-row text + `HH:MM:SS,mmm` time edits with overlap/format validation. Toolbar provides Save (overwrite SRT, renumbered) and Restore Original (reload from `.original.srt`); back-press shows save/discard/keep-editing dialog when dirty. `ProgressFragment` auto-navigates to editor when stage transitions to `Editing`. Burn (Phase 5) still pending.
 
 ## Authoritative design docs (read these first)
 
@@ -83,8 +83,11 @@ app/src/main/java/com/frank/videosubtitle/
     ├── common/BaseFragment.kt
     ├── home/                  HomeFragment (FAB+SAF picker), HomeViewModel,
     │                           HomeUiState, TaskListAdapter (Coil for thumb)
-    └── progress/              ProgressFragment (taskId arg), ProgressViewModel,
-                                ProgressUiState (incl. ModelStatus); observes TaskRepository
+    ├── progress/              ProgressFragment (taskId arg), ProgressViewModel,
+    │                           ProgressUiState (incl. ModelStatus); observes TaskRepository,
+    │                           one-shot navigates to editor when stage == Editing
+    └── editor/                EditorFragment (taskId arg), EditorViewModel,
+                                EditorUiState/Effect, SegmentAdapter (ListAdapter+DiffUtil)
 ```
 
 `stageKind` strings (`idle/extracting/transcribing/editing/burning/done/failed`) are persisted in Room — renaming them is a schema break. `TaskMappersTest` pins them.

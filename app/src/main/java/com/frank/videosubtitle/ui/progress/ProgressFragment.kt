@@ -6,6 +6,7 @@ import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import coil3.load
 import coil3.request.crossfade
@@ -24,6 +25,8 @@ class ProgressFragment : BaseFragment<FragmentProgressBinding>(FragmentProgressB
 
     private val viewModel: ProgressViewModel by viewModel { parametersOf(args.taskId) }
 
+    private var navigatedToEditor = false
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -40,6 +43,13 @@ class ProgressFragment : BaseFragment<FragmentProgressBinding>(FragmentProgressB
 
     private fun render(state: ProgressUiState) {
         val task = state.task ?: return
+        if (task.stage is TaskStage.Editing && !navigatedToEditor) {
+            navigatedToEditor = true
+            findNavController().navigate(
+                ProgressFragmentDirections.actionProgressToEditor(args.taskId)
+            )
+            return
+        }
         binding.title.text = task.video.displayName
         val thumb = task.video.thumbnailPath?.let(::File)?.takeIf { it.exists() }
         if (thumb != null) {

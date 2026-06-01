@@ -23,4 +23,29 @@
     <string name="model_ready">模型就绪</string>
     <string name="model_failed">模型下载失败：%1$s</string>
     <string name="model_download">下载模型</string>
+
+    <!-- Editor -->
+    <string name="editor_title">字幕编辑</string>
+    <string name="editor_save">保存</string>
+    <string name="editor_restore">恢复原文</string>
+    <string name="editor_restore_unavailable">无原文可恢复</string>
+    <string name="editor_segment_index">#%1$d</string>
+    <string name="editor_dialog_text_title">编辑文本</string>
+    <string name="editor_dialog_time_title">编辑时间轴</string>
+    <string name="editor_dialog_time_start">开始（HH:MM:SS,mmm）</string>
+    <string name="editor_dialog_time_end">结束（HH:MM:SS,mmm）</string>
+    <string name="editor_dialog_ok">确定</string>
+    <string name="editor_dialog_cancel">取消</string>
+    <string name="editor_validation_time_range">开始必须小于结束</string>
+    <string name="editor_validation_time_overlap">与相邻段时间冲突</string>
+    <string name="editor_validation_time_format">时间格式错误</string>
+    <string name="editor_save_success">已保存</string>
+    <string name="editor_save_failure">保存失败：%1$s</string>
+    <string name="editor_restore_success">已恢复原文</string>
+    <string name="editor_unsaved_title">放弃改动？</string>
+    <string name="editor_unsaved_message">有未保存的改动，是否保存？</string>
+    <string name="editor_unsaved_save">保存</string>
+    <string name="editor_unsaved_discard">丢弃</string>
+    <string name="editor_unsaved_keep_editing">继续编辑</string>
+    <string name="editor_empty">字幕文件为空或不存在</string>
 </resources>

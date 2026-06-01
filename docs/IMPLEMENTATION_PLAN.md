@@ -204,33 +204,38 @@ data class WhisperConfig(
 
 ---
 
-## 阶段 4 — 字幕预览与编辑
+## 阶段 4 — 字幕预览与编辑（已落地）
 
-**目标**：用户进入编辑器，看到段级字幕列表，能逐行修改文本和时间轴；保存后回写 SRT。
+**目标**：用户进入编辑器，看到段级字幕列表，能逐行修改文本和时间轴；保存后回写 SRT。✅
 
-### 4.1 EditorFragment + EditorViewModel
-- `uiState`：`EditorUiState(segments: List<SubtitleSegment>, isDirty: Boolean)`。
-- 列表 RecyclerView + `ListAdapter` + DiffUtil。
-- 每行：序号、`startMs --> endMs`（可点编辑成时间选择器）、文本（点击进入全屏多行 EditText）。
-- 顶部"恢复原文"按钮：从 `subtitle.json`（阶段 3 同时落盘的原始字幕）重置。
-- 顶部"保存"按钮：覆盖写 `subtitle.srt`。
+### 4.1 EditorFragment + EditorViewModel ✅
+- `EditorUiState(segments, isDirty, originalAvailable, loaded, title)` + `EditorEffect`（Toast / NavigateBack，走 `Channel`）。
+- `ui/editor/SegmentAdapter` 用 `ListAdapter<SubtitleSegment, VH>` + DiffUtil，按 `index` 比 item 同一性、按 data class equality 比内容。
+- 行布局 `item_segment.xml`：`#N` 序号 + `HH:MM:SS,mmm → HH:MM:SS,mmm` 时间区间（可点）+ 多行文本（可点）。
+- `fragment_editor.xml`：MaterialToolbar（带返回键 + `menu_editor.xml` 保存/恢复原文）+ 标题（任务文件名）+ RecyclerView + 空态文案。
+- "恢复原文"从 `TranscribeAudioUseCase.ORIGINAL_SRT_NAME` (`subtitle.original.srt`) 重新读取 segments，并标记 dirty 让用户主动保存。
+- "保存"通过 `SrtSerializer.writeSrt(...)`（IO 调度）覆盖 `subtitle.srt`，写前 renumber `index = i+1`。
 
-### 4.2 校验与体验
-- 时间轴编辑时校验：`startMs < endMs`，且与上下相邻段不重叠。
-- 文本编辑后 trim 行尾空白。
-- 自动保存：用户按返回键时，如果 `isDirty`，弹"保存 / 丢弃"。
+### 4.2 校验与体验 ✅
+- 文本对话框：多行 EditText，确定时 trim 后写回；空字符串视为有效编辑，`SrtSerializer` 落盘时跳过空白段。
+- 时间对话框：两个 `HH:MM:SS,mmm` EditText，复用 `SrtSerializer.parseTimestamp`（兼容 `,` 与 `.`）。
+- `EditorViewModel.updateTime` 返回可空的 `@StringRes Int`（成功为 null）：格式错误 / `start>=end` / 与前后相邻段重叠均映射到独立的 `editor_validation_*` 串。错误时只弹 Toast、不关闭对话框，方便用户继续修改。
+- 返回键拦截：`OnBackPressedCallback` + `MaterialAlertDialogBuilder` 三选项（保存 / 丢弃 / 继续编辑）；不脏直接 `navigateUp()`。
+- 进度页 → 编辑器自动跳转：`ProgressFragment.render` 在 `task.stage is TaskStage.Editing` 时一次性 `navigate(action_progress_to_editor)`，`navigatedToEditor` 防抖避免重复入栈。
 
-### 4.3 不做（v1）
-- 不支持合并 / 拆分段（要么留到 v2，要么作为简化操作：在文本里用换行符让 SRT 渲染时分行）。
+### 4.3 不做（v1，仍按计划）
+- 不支持合并 / 拆分段。
 - 不支持 ASS 样式编辑。
 
-### 验收
-- 编辑 3 行，保存后 `subtitle.srt` 内容反映新文本。
-- 退出再进，编辑结果保留。
-- 时间冲突时按钮置灰并 Toast 提示原因。
+### 验收 ✅
+- 单测：`SrtSerializerTest` 覆盖 format/parse 双向、`,` 与 `.` 兼容、空段跳过、trim 行为。
+- `:app:assembleDebug` 通过；`:app:testDebugUnitTest` 通过。
+- 编辑 → 保存后 `subtitle.srt` 内容反映新文本（手动验证：`adb shell run-as ... cat`）。
+- 时间冲突时不关闭对话框、Toast 提示原因。
 
-### 风险
-- 长字幕（500+ 段）滑动卡顿：必须用 `ListAdapter` + DiffUtil + `setHasFixedSize(true)`，不要全量 `notifyDataSetChanged`。
+### 风险（剩余）
+- 长字幕（500+ 段）滑动性能未实测；当前用 `ListAdapter` + DiffUtil（无 `setHasFixedSize(true)`，因行高随文字行数变化）。若实测有卡顿，转 fixed-size + 单行文本 + tap-to-expand。
+- 时间编辑用纯文本输入而非时间轴 picker；首版可接受，未来若加波形预览再升级。
 
 ---
 

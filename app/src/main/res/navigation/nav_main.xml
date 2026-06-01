@@ -23,6 +23,19 @@
         <argument
             android:name="taskId"
             app:argType="string" />
+        <action
+            android:id="@+id/action_progress_to_editor"
+            app:destination="@id/editorFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/editorFragment"
+        android:name="com.frank.videosubtitle.ui.editor.EditorFragment"
+        android:label="@string/editor_title"
+        tools:layout="@layout/fragment_editor">
+        <argument
+            android:name="taskId"
+            app:argType="string" />
     </fragment>
 
 </navigation>
