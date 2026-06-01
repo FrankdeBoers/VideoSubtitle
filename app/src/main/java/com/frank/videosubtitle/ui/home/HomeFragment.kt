@@ -90,6 +90,7 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>(FragmentHomeBinding::infl
             toolbar.inflateMenu(R.menu.menu_home_selection)
             toolbar.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
+                    R.id.action_start -> { viewModel.startSelected(); true }
                     R.id.action_select_all -> { viewModel.selectAll(); true }
                     R.id.action_delete -> { confirmDelete(selectedCount); true }
                     else -> false

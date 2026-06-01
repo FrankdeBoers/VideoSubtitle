@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.frank.videosubtitle.data.orchestrator.TaskOrchestrator
 import com.frank.videosubtitle.data.repository.TaskRepository
 import com.frank.videosubtitle.data.repository.VideoRepository
+import com.frank.videosubtitle.domain.model.TaskStage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -78,6 +79,26 @@ class HomeViewModel(
 
     fun clearSelection() {
         _uiState.update { it.copy(selectionMode = false, selectedIds = emptySet()) }
+    }
+
+    fun startSelected() {
+        val ids = _uiState.value.selectedIds.toList()
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            for (id in ids) {
+                val task = taskRepository.find(id) ?: continue
+                when (task.stage) {
+                    TaskStage.Idle, is TaskStage.Failed -> orchestrator.start(id, autoBurn = true)
+                    TaskStage.Editing -> orchestrator.startBurn(id)
+                    is TaskStage.Extracting,
+                    is TaskStage.Transcribing,
+                    is TaskStage.Burning,
+                    is TaskStage.Done,
+                    -> Unit
+                }
+            }
+            _uiState.update { it.copy(selectionMode = false, selectedIds = emptySet()) }
+        }
     }
 
     fun deleteSelected() {

@@ -52,7 +52,7 @@ class TaskOrchestrator(
         const val DEFAULT_OUTLINE_WIDTH = 2
     }
 
-    fun start(taskId: String) {
+    fun start(taskId: String, autoBurn: Boolean = false) {
         if (jobs[taskId]?.isActive == true) {
             Timber.d("Pipeline already running for %s", taskId)
             return
@@ -86,6 +86,23 @@ class TaskOrchestrator(
                 }
 
                 runTranscription(taskId, audioFile, srtFile, model, modelFile, settings)
+
+                if (autoBurn) {
+                    val afterTranscribe = taskRepository.find(taskId) ?: return@launch
+                    if (afterTranscribe.stage is TaskStage.Editing &&
+                        srtFile.exists() && srtFile.length() > 0L
+                    ) {
+                        runBurn(
+                            taskId = taskId,
+                            source = source,
+                            srt = srtFile,
+                            taskDir = taskDir,
+                            displayName = task.video.displayName,
+                            durationMs = task.video.durationMs,
+                            options = settings.toBurnOptions(),
+                        )
+                    }
+                }
             } finally {
                 jobs.remove(taskId)
             }
