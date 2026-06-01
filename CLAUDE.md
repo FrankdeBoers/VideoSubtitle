@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Android application `com.frank.videosubtitle` (VideoSubtitle). Goal: pick a local video → generate subtitles on-device with Whisper → burn subtitles back into the video with FFmpeg.
 
-**Current state: end of Phase 4** — Phase 1–3 + segment editor. After transcription `TranscribeAudioUseCase` writes `subtitle.srt` and a one-shot `subtitle.original.srt` snapshot. `EditorFragment`/`EditorViewModel` (`ui/editor/`) load segments via `SrtSerializer`, render through `SegmentAdapter` (ListAdapter+DiffUtil), and offer per-row text + `HH:MM:SS,mmm` time edits with overlap/format validation. Toolbar provides Save (overwrite SRT, renumbered) and Restore Original (reload from `.original.srt`); back-press shows save/discard/keep-editing dialog when dirty. `ProgressFragment` auto-navigates to editor when stage transitions to `Editing`. Burn (Phase 5) still pending.
+**Current state: end of Phase 6** — Phase 1–5 + background hardening. `service/VideoProcessingService` is a foreground service (no binding) that observes `TaskRepository.observeAll()`, posts a single rolling notification (title=video name, stage text, progress bar, Cancel action via PendingIntent → `ACTION_CANCEL` → `TaskOrchestrator.cancel`), and `stopSelf` once no task is in an in-progress stage. `TaskOrchestrator.start`/`startBurn` call `VideoProcessingService.start(context)` before launching pipeline coroutines on the application scope — the service keeps the process alive but does NOT own the work. API 34+ uses `FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING`; manifest declares `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PROCESSING`, `POST_NOTIFICATIONS` (runtime prompt not yet wired). On app start, `VideoSubtitleApp` runs `TaskRepository.recoverInterrupted()`: any task left in {Extracting, Transcribing, Burning} is rewound to the closest completed step based on disk artifacts (`subtitle.srt`/`.original.srt` → Editing, `audio.wav` → Idle, otherwise Idle) — recovery never auto-resumes; the user re-runs explicitly. `TaskOrchestrator.hasEnoughSpace` (StatFs on `cacheDir`) gates Extract and Burn at `source.length() * 2`; on insufficient space the task fails with `error_insufficient_storage`. Phase 7 (settings/model picker) still pending.
 
 ## Authoritative design docs (read these first)
 
@@ -66,18 +66,25 @@ app/src/main/java/com/frank/videosubtitle/
 ├── di/
 │   ├── AppModule.kt           DispatcherProvider, applicationScope (SupervisorJob+IO)
 │   ├── DataModule.kt          Room, repos, engines (FFmpeg + Whisper), use cases, TaskOrchestrator
-│   └── UiModule.kt            ViewModels (HomeViewModel, ProgressViewModel)
+│   └── UiModule.kt            ViewModels (HomeViewModel, ProgressViewModel, EditorViewModel)
 ├── domain/
 │   ├── model/                 VideoMeta, TaskStage, TaskState, Subtitle, WhisperModel
-│   ├── engine/                FFmpegEngine, WhisperEngine (interfaces), config + event types
-│   └── usecase/               ExtractAudioUseCase, TranscribeAudioUseCase (both idempotent)
+│   ├── engine/                FFmpegEngine (+BurnOptions), WhisperEngine (interfaces), config + event types
+│   └── usecase/               ExtractAudioUseCase, TranscribeAudioUseCase, BurnSubtitlesUseCase (idempotent)
 ├── data/
-│   ├── engine/                FFmpegKitEngine, WhisperJniEngine, WavDecoder
-│   ├── orchestrator/          TaskOrchestrator (extract → transcribe → ...)
-│   ├── repository/            TaskRepository, VideoRepository, ModelRepository (OkHttp+SHA-256)
+│   ├── engine/                FFmpegKitEngine (extractAudio + burnSubtitles), WhisperJniEngine, WavDecoder
+│   ├── orchestrator/          TaskOrchestrator (start → extract → transcribe → editing → startBurn → done;
+│   │                           StatFs disk-space gate; FGS lifecycle)
+│   ├── repository/            TaskRepository (incl. recoverInterrupted sweep), VideoRepository,
+│   │                           ModelRepository (OkHttp+SHA-256)
 │   └── source/
 │       ├── local/             Room (TaskEntity/Dao/AppDatabase/Mappers), SrtSerializer
-│       └── media/UriResolver  copyToCache + MediaMetadataRetriever probe + thumb
+│       └── media/                UriResolver (copyToCache + thumb),
+│                                  MediaStoreSaver (Movies/VideoSubtitle output)
+├── service/
+│   └── VideoProcessingService.kt  Foreground service (mediaProcessing on API 34+); observes
+│                                   TaskRepository, posts rolling notification with cancel action,
+│                                   stopSelf when no in-progress task remains
 ├── util/{DispatcherProvider, AppError, DomainResult}.kt
 └── ui/
     ├── common/BaseFragment.kt

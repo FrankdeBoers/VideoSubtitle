@@ -1,13 +1,19 @@
 package com.frank.videosubtitle.data.orchestrator
 
+import android.content.Context
+import android.os.StatFs
 import com.frank.videosubtitle.data.repository.ModelRepository
 import com.frank.videosubtitle.data.repository.TaskRepository
+import com.frank.videosubtitle.data.source.media.MediaStoreSaver
+import com.frank.videosubtitle.domain.engine.BurnOptions
 import com.frank.videosubtitle.domain.engine.TranscribeEvent
 import com.frank.videosubtitle.domain.engine.WhisperConfig
 import com.frank.videosubtitle.domain.model.TaskStage
 import com.frank.videosubtitle.domain.model.WhisperModel
+import com.frank.videosubtitle.domain.usecase.BurnSubtitlesUseCase
 import com.frank.videosubtitle.domain.usecase.ExtractAudioUseCase
 import com.frank.videosubtitle.domain.usecase.TranscribeAudioUseCase
+import com.frank.videosubtitle.service.VideoProcessingService
 import com.frank.videosubtitle.util.DispatcherProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -26,12 +32,15 @@ import java.util.concurrent.ConcurrentHashMap
  * Room.
  */
 class TaskOrchestrator(
+    private val context: Context,
     private val appScope: CoroutineScope,
     private val dispatchers: DispatcherProvider,
     private val taskRepository: TaskRepository,
     private val modelRepository: ModelRepository,
     private val extractAudio: ExtractAudioUseCase,
     private val transcribeAudio: TranscribeAudioUseCase,
+    private val burnSubtitles: BurnSubtitlesUseCase,
+    private val mediaStoreSaver: MediaStoreSaver,
 ) {
 
     private val jobs = ConcurrentHashMap<String, Job>()
@@ -41,6 +50,7 @@ class TaskOrchestrator(
             Timber.d("Pipeline already running for %s", taskId)
             return
         }
+        VideoProcessingService.start(context)
         jobs[taskId] = appScope.launch(dispatchers.io) {
             try {
                 val task = taskRepository.find(taskId) ?: run {
@@ -73,6 +83,29 @@ class TaskOrchestrator(
         }
     }
 
+    fun startBurn(taskId: String, options: BurnOptions = BurnOptions()) {
+        if (jobs[taskId]?.isActive == true) {
+            Timber.d("Pipeline already running for %s", taskId)
+            return
+        }
+        VideoProcessingService.start(context)
+        jobs[taskId] = appScope.launch(dispatchers.io) {
+            try {
+                val task = taskRepository.find(taskId) ?: return@launch
+                val source = File(task.video.cachedPath)
+                val taskDir = source.parentFile ?: error("Task source has no parent dir")
+                val srtFile = File(taskDir, "subtitle.srt")
+                if (!srtFile.exists() || srtFile.length() == 0L) {
+                    taskRepository.update(task.copy(stage = TaskStage.Failed("Subtitle file missing")))
+                    return@launch
+                }
+                runBurn(taskId, source, srtFile, taskDir, task.video.displayName, task.video.durationMs, options)
+            } finally {
+                jobs.remove(taskId)
+            }
+        }
+    }
+
     fun cancel(taskId: String) {
         jobs.remove(taskId)?.cancel()
         appScope.launch(dispatchers.io) {
@@ -80,6 +113,7 @@ class TaskOrchestrator(
             when (current.stage) {
                 is TaskStage.Extracting,
                 is TaskStage.Transcribing,
+                is TaskStage.Burning,
                 -> taskRepository.update(current.copy(stage = TaskStage.Failed("Cancelled")))
                 else -> Unit
             }
@@ -94,6 +128,15 @@ class TaskOrchestrator(
     ): Boolean {
         var failed = false
         val current = taskRepository.find(taskId) ?: return false
+        // Audio is roughly 32 KB/s of duration but we keep 2x video size as a
+        // generous floor so the WAV + later mp4 burn fit on disk.
+        val needed = source.length() * 2
+        if (!hasEnoughSpace(output.parentFile, needed)) {
+            taskRepository.update(
+                current.copy(stage = TaskStage.Failed("Insufficient storage (need ~${needed / 1024 / 1024} MB)")),
+            )
+            return false
+        }
         taskRepository.update(current.copy(stage = TaskStage.Extracting(0)))
 
         extractAudio(source, output, durationMs)
@@ -109,6 +152,71 @@ class TaskOrchestrator(
                 taskRepository.update(now.copy(stage = TaskStage.Extracting(progress.percent)))
             }
         return !failed
+    }
+
+    private suspend fun runBurn(
+        taskId: String,
+        source: File,
+        srt: File,
+        taskDir: File,
+        displayName: String,
+        durationMs: Long,
+        options: BurnOptions,
+    ) {
+        val current = taskRepository.find(taskId) ?: return
+        val needed = source.length() * 2
+        if (!hasEnoughSpace(taskDir, needed)) {
+            taskRepository.update(
+                current.copy(stage = TaskStage.Failed("Insufficient storage (need ~${needed / 1024 / 1024} MB)")),
+            )
+            return
+        }
+        taskRepository.update(current.copy(stage = TaskStage.Burning(0)))
+
+        // For HARD burn, force mp4 output. For SOFT, keep mp4 only — softMux requires mov_text.
+        val ext = "mp4"
+        val baseName = displayName.substringBeforeLast('.', displayName)
+            .ifBlank { "subtitled_${taskId.take(8)}" }
+        val intermediate = File(taskDir, "output.$ext")
+
+        var failed = false
+        burnSubtitles(source, srt, intermediate, durationMs, options)
+            .catch { t ->
+                failed = true
+                Timber.e(t, "burnSubtitles failed for %s", taskId)
+                val now = taskRepository.find(taskId) ?: current
+                taskRepository.update(now.copy(stage = TaskStage.Failed(t.message ?: t.javaClass.simpleName)))
+            }
+            .collect { progress ->
+                val now = taskRepository.find(taskId) ?: return@collect
+                if (now.stage is TaskStage.Failed) return@collect
+                taskRepository.update(now.copy(stage = TaskStage.Burning(progress.percent)))
+            }
+        if (failed) return
+
+        val finalName = uniqueDisplayName("${baseName}_subtitled.$ext")
+        val mime = if (ext == "mp4" || ext == "m4v") "video/mp4" else "video/${ext}"
+        val saved = runCatching { mediaStoreSaver.saveToMovies(intermediate, finalName, mime) }
+            .onFailure { Timber.e(it, "MediaStore save failed") }
+        if (saved.isSuccess) {
+            val uri = saved.getOrThrow()
+            val now = taskRepository.find(taskId) ?: return
+            taskRepository.update(now.copy(stage = TaskStage.Done(uri.toString())))
+        } else {
+            val now = taskRepository.find(taskId) ?: return
+            val msg = saved.exceptionOrNull()?.message ?: "MediaStore save failed"
+            taskRepository.update(now.copy(stage = TaskStage.Failed(msg)))
+        }
+    }
+
+    private fun uniqueDisplayName(name: String): String = name
+
+    private fun hasEnoughSpace(dir: File?, neededBytes: Long): Boolean {
+        val target = dir ?: return true
+        return runCatching {
+            val stat = StatFs(target.absolutePath)
+            stat.availableBytes >= neededBytes
+        }.getOrDefault(true)
     }
 
     private suspend fun runTranscription(

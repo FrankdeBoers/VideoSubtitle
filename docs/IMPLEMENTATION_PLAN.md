@@ -239,70 +239,85 @@ data class WhisperConfig(
 
 ---
 
-## 阶段 5 — 视频合成
+## 阶段 5 — 视频合成（已落地）
 
-**目标**：把编辑后的 SRT 烧回原视频（硬字幕默认；mp4/mov 输出可选软字幕），文件落地到 MediaStore。
+**目标**：把编辑后的 SRT 烧回原视频（硬字幕默认；mp4/mov 输出可选软字幕），文件落地到 MediaStore。✅
 
-### 5.1 BurnSubtitlesUseCase
-- 输入：`videoFile`, `srtFile`, `outputFile`, `BurnOptions(mode: HARD|SOFT, crf: Int, preset: String, fontSizeSp: Int, fontColor: Int, vAlign: Top|Mid|Bottom)`。
-- 调 `FFmpegEngine.burnSubtitles(...)`，返回 `Flow<FfmpegProgress>`。
+### 5.1 BurnSubtitlesUseCase ✅
+- `domain/usecase/BurnSubtitlesUseCase` thin wrapper → `FFmpegEngine.burnSubtitles(video, srt, output, durationMs, BurnOptions)`。
+- `BurnOptions(mode = HARD, crf = 23, preset = "medium", fontSize = 24, fontColorArgb = 0xFFFFFFFF, outlineColorArgb = 0xFF000000, outlineWidth = 2, alignment = BottomCenter)` 默认值即 v1 行为，未来 Phase 7 设置页直接覆盖。
 
-### 5.2 FFmpegEngine.burnSubtitles
-- 命令分支与 SDD §6.2[5] 一致。
-- 路径预处理：把 srt 拷到 `cacheDir/tasks/<id>/subs.srt`（保证 ASCII 路径），FFmpeg filter 用单引号 + `:` 转义。
-- 字幕样式（仅硬字幕）通过 `subtitles=...:force_style='Fontsize=24,PrimaryColour=&H00FFFFFF&,Alignment=2'` 注入；这是简化的 ASS override syntax。
-- `OnStatisticsCallback` → `FfmpegProgress`。
+### 5.2 FFmpegEngine.burnSubtitles ✅
+- HARD 命令：`-y -i video -vf "subtitles='<escaped path>':force_style='Fontsize=...,PrimaryColour=&H...&,Alignment=2,Outline=2,BorderStyle=1,MarginV=24'" -c:v libx264 -preset medium -crf 23 -c:a copy -movflags +faststart output.mp4`。
+- SOFT 命令：`-y -i video -i srt -map 0:v:0 -map 0:a:0? -map 1:0 -c:v copy -c:a copy -c:s mov_text -metadata:s:s:0 language=und output.mp4`（仅 mp4/m4v/mov 容器）。
+- SRT 落到任务目录下的 `subs.srt`（task dir UUID 路径已经全 ASCII，再多一层防呆）。`subtitles=` 过滤器值用 `escapeForSubtitlesFilter()` 转义 `\\` `:` `'` `,` `[` `]`，再单引号包裹。
+- `argbToAssBgr(int)` 把 ARGB 转成 ASS 颜色：`&HAABBGGRR`，alpha 反向（00=不透明）。
+- 复用 `runFFmpegSession()` 私有 helper（共享 LogCallback/StatisticsCallback/awaitClose 取消逻辑），`extractAudio` 也走该路径。
 
-### 5.3 输出落地
-- `MediaStoreSaver.saveToMovies(file, displayName)`：
-  - API 29+：`MediaStore.Video.Media.EXTERNAL_CONTENT_URI` + `RELATIVE_PATH=Movies/VideoSubtitle/`，`IS_PENDING=1` → 写入 → `IS_PENDING=0`。
-  - API 26–28：直接写到 `getExternalStoragePublicDirectory(DIRECTORY_MOVIES)/VideoSubtitle/`。
-- 完成后给 ProgressFragment 一个"在相册中打开"action（intent ACTION_VIEW 带返回 URI）。
+### 5.3 输出落地 ✅
+- `data/source/media/MediaStoreSaver`：
+  - API 29+：`MediaStore.Video.Media.EXTERNAL_CONTENT_URI` + `RELATIVE_PATH=Movies/VideoSubtitle/`，`IS_PENDING=1` 写入 → `IS_PENDING=0` 提交，写失败回滚 `delete(uri)`。
+  - API 26–28：写到 `Environment.DIRECTORY_MOVIES/VideoSubtitle/`，通过 `androidx.core.content.FileProvider`（manifest 已注册 `${applicationId}.fileprovider`，paths 在 `res/xml/file_paths.xml`）暴露 `content://` URI。
+- 复制完成后 `source.delete()` 清理 cacheDir 中间文件，把 `Uri.toString()` 写进 `TaskStage.Done(outputPath)`。
 
-### 5.4 软字幕检查
-- 仅当 output suffix 在 `{mp4, m4v, mov}` 时允许软字幕；否则自动切换硬字幕，并 Toast 告知用户。
+### 5.4 编辑器导出 → 进度页 → 在播放器中打开 ✅
+- `menu_editor.xml` 新增 `action_export`；`EditorViewModel.export()` 若 dirty 先调 `save { ok -> orchestrator.startBurn(taskId) }`，再 emit `EditorEffect.NavigateBack`。
+- `TaskOrchestrator.startBurn(taskId, options)` 使用与 `start` 相同的 `jobs` map（同一 `taskId` 不会并发）；任务序列：`Burning(0..100)` → `MediaStoreSaver.saveToMovies` → `Done(uri)` 或 `Failed(reason)`。`cancel()` 现在覆盖 `Burning` 阶段。
+- `ProgressFragment` 在 `task.stage is TaskStage.Done` 时显示 "在播放器中打开" 按钮，发出 `ACTION_VIEW` + `FLAG_GRANT_READ_URI_PERMISSION`。
+
+### 5.5 不做（v1）
+- 没有 bundle Noto Sans SC（~10MB） — 先依赖系统 `/system/fonts` 中的 CJK 字体（Pixel/常见 OEM 都自带 Noto Sans CJK）。如真机实测中文显示为方框，再补 `fontsdir=` 注入。
+- 用户不能选择 SOFT 模式，Phase 7 设置页接入。
+- 输出文件名固定 `${baseName}_subtitled.mp4`，未做去重，重复导出会撞名（MediaStore 行为：同名文件追加 `(1)` 后缀）。
 
 ### 验收
-- 硬字幕：输出 mp4 在系统播放器看到字幕，`ffprobe` 看不到 subtitle stream。
-- 软字幕：输出 mp4 用 VLC 看到 subtitle track，`ffprobe` 看到 `mov_text`。
-- 中文文件名 / 路径不导致 filter 失败。
-- 5min 1080p 视频在 Pixel 6 上硬字幕合成 < 实时倍率 1×（即 < 5min）。
+- `:app:assembleDebug` ✅ / `:app:testDebugUnitTest` ✅。
+- 真机端到端验证（待执行）：硬字幕输出 mp4 在系统相册可播放、字幕可见，`ffprobe` 看不到 subtitle stream。
+- 中文路径与文件名通过 `escapeForSubtitlesFilter()` 处理；MediaStore RELATIVE_PATH 不依赖路径字符。
 
-### 风险
-- `subtitles=` filter 字体替换：Android 上 libass 找不到默认字体时会 fallback 到 sans-serif，可能不支持中文 → **必须**在阶段 5 内 bundle 一个开源 CJK 字体（如 `NotoSansSC-Regular.otf`，~10MB），通过 `fontsdir=` 参数传给 filter。需要在 SDD §11 的 APK 体积里预算这部分。
+### 风险（剩余）
+- libass 字体回退：未 bundle CJK 字体，依赖 `/system/fonts`。低端定制 ROM 或国产去字体精简包可能没有，会导致中文 fallback 为方框。如出现立刻补 NotoSansSC，并把 `fontsdir=/system/fonts:assets://fonts` 加到 force_style 之前。
+- SOFT 模式没有 UI 入口；`burnSubtitles` 已支持但当前编辑器的导出按钮硬编码 `BurnOptions()` 默认（HARD）。
+- 没有磁盘空间预检查（Phase 6）。导出 1080p 长视频可能在 cacheDir 写一份 + MediaStore 再写一份 = 视频大小 × 2 占用，瞬时高峰需要注意。
 
 ---
 
-## 阶段 6 — 后台任务与稳健性
+## 阶段 6 — 后台任务与稳健性（已落地）
 
-**目标**：长任务在 App 进入后台后继续跑；进程被杀后能恢复任务状态；任务可取消、可重试。
+**目标**：长任务在 App 进入后台后继续跑；进程被杀后能恢复任务状态；任务可取消、可重试。✅
 
-### 6.1 前台 Service
-- 新增 `VideoProcessingService : LifecycleService`（或 `Service` + 自管 scope）。
-- `foregroundServiceType="mediaProcessing|dataSync"`（API 34+ 必需）。
-- 通知里展示当前阶段 + 总进度，含"取消"动作。
-- ViewModel 不再持有任务执行权，只通过 `TaskRepository` 启动/观察。
+### 6.1 前台 Service ✅
+- `service/VideoProcessingService : Service`，单例，`onBind` 返回 null（启动型 Service）。
+- API 34+ 走 `startForeground(id, notification, FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING)`，老版本走两参 `startForeground`。Manifest 注册 `<service ... foregroundServiceType="mediaProcessing">`，权限 `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MEDIA_PROCESSING` + `POST_NOTIFICATIONS`。
+- 不持有任务执行权——`TaskOrchestrator.appScope` 仍是协程跑的地方；service 的唯一职责是观察 `taskRepository.observeAll()` 并在最近一个"in-progress"任务存在时维持 foreground notification，全部结束就 `stopSelf()`。`distinctUntilChanged` 确保通知不抖动。
+- 通知样式：标题=任务文件名 / 阶段文本（`task_stage_*` 复用）+ 进度条 + Cancel action（PendingIntent → service 自身的 `ACTION_CANCEL`，由 service 转交给 orchestrator）。
+- `TaskOrchestrator.start(...)`/`startBurn(...)` 在 launch 协程之前调用 `VideoProcessingService.start(context)`；service 用 `START_NOT_STICKY`，进程死则放弃，不复活。
 
-### 6.2 状态恢复
-- `TaskRepository.startup()`：扫 Room 中 `stage` 不为 `Done/Failed/Idle` 的任务，检查中间产物：
-  - `audio.wav` 存在 → 跳过提取，从识别开始。
-  - `subtitle.srt` 存在 → 跳过识别，进入 Editing（不会自动跑合成，需要用户确认）。
-- 任务标记 `stage = Failed(...)` 后，UI 提供"从此步骤重试"按钮。
+### 6.2 状态恢复 ✅
+- `TaskRepository.recoverInterrupted()` 在 `VideoSubtitleApp.onCreate` 里启动协程调用：
+  - 任务 stage 不在 {Extracting, Transcribing, Burning} 跳过。
+  - 否则按文件存在性回退：`subtitle.srt`/`subtitle.original.srt` 在 → `Editing`；`audio.wav` 在 → `Idle`（用户重启即跳过 extract，因为 transcribe usecase 已自带 SRT 缓存短路）；都没有 → `Idle`。
+- 进入 `Editing` 后用户可在 ProgressFragment 重启 burn；进入 `Idle` 用户可点"开始处理"。
 
-### 6.3 取消语义
-- 取消 → 当前阶段 `cancel()`：
-  - FFmpegKit：`FFmpegKit.cancel(sessionId)`。
-  - whisper-jni：关闭 `WhisperContext`（在 `awaitClose` 里）。
-- 取消后任务保留中间产物，UI 状态变 `Failed(Cancelled)`，允许重试。
+### 6.3 取消语义 ✅
+- 通知里的"取消"和 ProgressFragment 的取消按钮都走 `TaskOrchestrator.cancel(taskId)`。
+- 协程 cancel → `awaitClose` 里 `FFmpegKit.cancel(sessionId)` 或 whisper context close + `aborted = 1`。
+- Repository 把 stage 标 `Failed("Cancelled")`，service 的观察者看到没有 in-progress 任务后 `stopSelf()`。
 
-### 6.4 通用稳健性
-- 全局 `CoroutineExceptionHandler` → Timber + Crashlytics（可选，先空实现接口）。
-- 磁盘空间检查：每阶段开始前确保剩余空间 > 视频大小 × 2，否则提前失败。
+### 6.4 通用稳健性 ✅
+- 磁盘空间预检查：`runExtraction` / `runBurn` 开头 `StatFs(taskDir).availableBytes >= source.length() * 2`，否则直接 `Failed("Insufficient storage (need ~xx MB)")`。
 
 ### 验收
-- 任务跑到 50% 时把 App 切后台 5 分钟，任务能跑完并发系统通知。
-- 任务跑到 50% 时强杀 App（`adb shell am force-stop`），重开后能看到任务状态为 Failed 或自动从最近完成步骤恢复。
-- 取消任务后再启动同一视频任务，从头开始。
+- `:app:assembleDebug` ✅ / `:app:testDebugUnitTest` ✅。
+- 真机端到端验证（待执行）：
+  - 跑到 50% 切后台 5 分钟仍能完成（通知保活）。
+  - `adb shell am force-stop com.frank.videosubtitle` 后重开，stage 回到 Editing/Idle，可继续。
+  - 通知"取消"按钮把任务标 `Failed(Cancelled)`，重新点击"开始处理"从头开始。
+
+### 风险（剩余）
+- `POST_NOTIFICATIONS` 是 API 33+ 运行时权限，目前没有运行时申请——通知拒绝时 foreground service 仍能跑（OS 给 notification 兜底显示），但用户看不到自定义文案。Phase 7 再加 `requestPermissions`。
+- `VideoProcessingService` 当前只显示一个聚合通知（最近的 in-progress 任务）。如果用户同时跑多个任务（v1 不支持，但未来可能），需要拆成多通知。
+- 没有 `CoroutineExceptionHandler` —— 仍依赖 use case 内部 `.catch {}`。如果哪条 flow 漏掉，会 crash。
 
 ---
 

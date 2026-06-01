@@ -48,4 +48,20 @@
     <string name="editor_unsaved_discard">丢弃</string>
     <string name="editor_unsaved_keep_editing">继续编辑</string>
     <string name="editor_empty">字幕文件为空或不存在</string>
+    <string name="editor_export">导出视频</string>
+    <string name="editor_export_save_first">已自动保存改动</string>
+    <string name="progress_burn_done">字幕已合成</string>
+    <string name="progress_open_in_player">在播放器中打开</string>
+    <string name="progress_burn_failed_open">无法打开播放器</string>
+
+    <!-- Service / notifications -->
+    <string name="notif_channel_pipeline">字幕处理</string>
+    <string name="notif_channel_pipeline_desc">视频提取 / 识别 / 合成进度</string>
+    <string name="notif_pipeline_title">VideoSubtitle 正在处理</string>
+    <string name="notif_pipeline_idle">处理中</string>
+    <string name="notif_action_cancel">取消</string>
+
+    <!-- Errors -->
+    <string name="error_insufficient_storage">磁盘空间不足，至少需要 %1$s 可用空间</string>
+    <string name="error_recovery_killed">应用被中断，请重试</string>
 </resources>

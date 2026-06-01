@@ -6,6 +6,10 @@ import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import coil3.load
@@ -33,6 +37,11 @@ class ProgressFragment : BaseFragment<FragmentProgressBinding>(FragmentProgressB
         binding.btnStart.setOnClickListener { viewModel.startPipeline() }
         binding.btnCancel.setOnClickListener { viewModel.cancel() }
         binding.btnDownloadModel.setOnClickListener { viewModel.downloadModel() }
+        binding.btnOpenPlayer.setOnClickListener {
+            val outputPath = (viewModel.uiState.value.task?.stage as? TaskStage.Done)?.outputPath
+                ?: return@setOnClickListener
+            openInPlayer(outputPath)
+        }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -60,8 +69,22 @@ class ProgressFragment : BaseFragment<FragmentProgressBinding>(FragmentProgressB
         binding.stageLabel.text = stageLabel(state)
         binding.btnStart.isEnabled = state.canStart
         binding.btnCancel.isEnabled = state.canCancel
+        binding.btnOpenPlayer.isVisible = task.stage is TaskStage.Done
 
         renderModel(state.model)
+    }
+
+    private fun openInPlayer(outputPath: String) {
+        val uri = runCatching { Uri.parse(outputPath) }.getOrNull() ?: return
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "video/*")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        try {
+            startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(requireContext(), R.string.progress_burn_failed_open, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun renderModel(status: ModelStatus) {

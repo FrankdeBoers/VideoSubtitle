@@ -41,7 +41,7 @@ class ProgressViewModel(
                 val (percent, running) = when (val s = task.stage) {
                     is TaskStage.Extracting -> s.percent to (s.percent < 100)
                     is TaskStage.Transcribing -> s.percent to true
-                    is TaskStage.Burning -> s.percent to true
+                    is TaskStage.Burning -> s.percent to (s.percent < 100)
                     TaskStage.Editing -> 100 to false
                     is TaskStage.Done -> 100 to false
                     is TaskStage.Failed -> 0 to false
