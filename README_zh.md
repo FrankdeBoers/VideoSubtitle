@@ -2,11 +2,18 @@
 
 [English](./README.md) | [中文](./README_zh.md)
 
-一款 Android 应用，提供离线一站式流水线：**从相册选择本地视频 → whisper.cpp 端侧识别 → 编辑字幕 → FFmpeg 合成 → 写入系统相册**。参考实现：Python 桌面版 [`VideoCaptioner`](https://github.com/WEIFENG2333/VideoCaptioner) —— 本工程只参考其核心管线（识别 → 字幕 → 合成），不参考 LLM、在线下载等能力。
+一款 Android 应用，提供离线一站式流水线：**从相册选择本地视频 → whisper.cpp 端侧识别 → 编辑字幕 → FFmpeg 合成 → 写入系统相册**。
 
-- 包名：`com.frank.videosubtitle`
-- `minSdk` 26 · `targetSdk` 36 · `compileSdk` 36.1 · Java / Kotlin 11
-- 单 module 工程（root + `:app`）
+## 性能实测
+
+测试设备：三星 Galaxy S24 Ultra；视频时长：1 分 30 秒。
+
+| 阶段   | 耗时 |
+|------| --- |
+| 提取音频 | 约 10 秒 |
+| 字幕识别 | 约 15 分钟 |
+| 翻译   | 约 20 秒 |
+| 烧录字幕 | 约 1 分钟 |
 
 ## Spec-Driven Development（本项目的开发模式）
 

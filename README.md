@@ -2,11 +2,18 @@
 
 [English](./README.md) | [中文](./README_zh.md)
 
-An Android app for the offline pipeline **Pick a local video → transcribe with whisper.cpp on-device → edit subtitles → burn them back into the video with FFmpeg → save to the system gallery**. Reference implementation: the Python desktop app [`VideoCaptioner`](https://github.com/WEIFENG2333/VideoCaptioner) — this project replicates only its core pipeline (recognize → subtitle → mux), not the LLM or downloader features.
+An Android app for the offline pipeline **Pick a local video → transcribe with whisper.cpp on-device → edit subtitles → burn them back into the video with FFmpeg → save to the system gallery**. 
 
-- Package: `com.frank.videosubtitle`
-- `minSdk` 26 · `targetSdk` 36 · `compileSdk` 36.1 · Java/Kotlin 11
-- Single-module project (root + `:app`)
+## Performance benchmark
+
+Measured on a Samsung Galaxy S24 Ultra with a 1:30 (1 min 30 s) source video:
+
+| Stage | Time |
+| --- | --- |
+| Extract audio | ~10 s |
+| Transcribe (Whisper) | ~15 min |
+| Translate | ~20 s |
+| Burn subtitles | ~1 min |
 
 ## Spec-Driven Development (how this project works)
 
