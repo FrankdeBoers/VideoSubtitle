@@ -130,6 +130,11 @@ dependencies {
     // FFmpegKit (audio extraction Phase 2; subtitle burn Phase 5)
     implementation(libs.ffmpeg.kit.full.gpl)
 
+    // Media3 Transformer (Phase 8 — Android Media backend, MediaCodec hardware path)
+    implementation(libs.androidx.media3.transformer)
+    implementation(libs.androidx.media3.effect)
+    implementation(libs.androidx.media3.common)
+
     // OkHttp — Whisper model downloads with Range request resume
     implementation(libs.okhttp)
 

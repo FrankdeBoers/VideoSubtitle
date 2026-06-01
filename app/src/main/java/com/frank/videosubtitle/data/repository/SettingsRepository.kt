@@ -6,6 +6,7 @@ import com.frank.videosubtitle.domain.engine.SubtitleAlignment
 import com.frank.videosubtitle.domain.engine.SubtitleDisplay
 import com.frank.videosubtitle.domain.model.AppSettings
 import com.frank.videosubtitle.domain.model.LanguagePref
+import com.frank.videosubtitle.domain.model.MediaBackend
 import com.frank.videosubtitle.domain.model.SubtitleColor
 import com.frank.videosubtitle.domain.model.TranslationProvider
 import com.frank.videosubtitle.domain.model.VideoPreset
@@ -34,6 +35,7 @@ interface SettingsRepository {
     suspend fun setSubtitleDisplay(display: SubtitleDisplay)
     suspend fun setTranslateToChinese(enabled: Boolean)
     suspend fun setTranslationProvider(provider: TranslationProvider)
+    suspend fun setMediaBackend(backend: MediaBackend)
 }
 
 class DefaultSettingsRepository(
@@ -97,5 +99,8 @@ class DefaultSettingsRepository(
     }
     override suspend fun setTranslationProvider(provider: TranslationProvider) {
         dataStore.setTranslationProvider(provider)
+    }
+    override suspend fun setMediaBackend(backend: MediaBackend) {
+        dataStore.setMediaBackend(backend)
     }
 }

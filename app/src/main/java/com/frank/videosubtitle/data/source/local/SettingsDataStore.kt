@@ -13,6 +13,7 @@ import com.frank.videosubtitle.domain.engine.SubtitleAlignment
 import com.frank.videosubtitle.domain.engine.SubtitleDisplay
 import com.frank.videosubtitle.domain.model.AppSettings
 import com.frank.videosubtitle.domain.model.LanguagePref
+import com.frank.videosubtitle.domain.model.MediaBackend
 import com.frank.videosubtitle.domain.model.SubtitleColor
 import com.frank.videosubtitle.domain.model.TranslationProvider
 import com.frank.videosubtitle.domain.model.VideoPreset
@@ -72,6 +73,9 @@ class SettingsDataStore(context: Context) {
     suspend fun setTranslationProvider(provider: TranslationProvider) = store.edit {
         it[KEY_TRANSLATION_PROVIDER] = provider.name
     }
+    suspend fun setMediaBackend(backend: MediaBackend) = store.edit {
+        it[KEY_MEDIA_BACKEND] = backend.name
+    }
 
     private fun Preferences.toAppSettings(): AppSettings = AppSettings(
         model = readEnum(KEY_MODEL, WhisperModel.Base),
@@ -97,6 +101,7 @@ class SettingsDataStore(context: Context) {
         subtitleDisplay = readEnum(KEY_SUBTITLE_DISPLAY, SubtitleDisplay.Both),
         translateToChinese = this[KEY_TRANSLATE_ZH] ?: true,
         translationProvider = readEnum(KEY_TRANSLATION_PROVIDER, TranslationProvider.MlKit),
+        mediaBackend = readEnum(KEY_MEDIA_BACKEND, MediaBackend.Ffmpeg),
     )
 
     private inline fun <reified T : Enum<T>> Preferences.readEnum(
@@ -126,5 +131,6 @@ class SettingsDataStore(context: Context) {
         private val KEY_SUBTITLE_DISPLAY = stringPreferencesKey("subtitle_display")
         private val KEY_TRANSLATE_ZH = booleanPreferencesKey("translate_to_chinese")
         private val KEY_TRANSLATION_PROVIDER = stringPreferencesKey("translation_provider")
+        private val KEY_MEDIA_BACKEND = stringPreferencesKey("media_backend")
     }
 }

@@ -3,9 +3,11 @@ package com.frank.videosubtitle.di
 import androidx.room.Room
 import com.frank.videosubtitle.data.engine.BaiduTranslationEngine
 import com.frank.videosubtitle.data.engine.FFmpegKitEngine
+import com.frank.videosubtitle.data.engine.Media3TransformerEngine
 import com.frank.videosubtitle.data.engine.MicrosoftTranslationEngine
 import com.frank.videosubtitle.data.engine.MlKitTranslationEngine
 import com.frank.videosubtitle.data.engine.RouterTranslationEngine
+import com.frank.videosubtitle.data.engine.RoutingMediaEngine
 import com.frank.videosubtitle.data.engine.TencentTranslationEngine
 import com.frank.videosubtitle.data.engine.WhisperJniEngine
 import com.frank.videosubtitle.data.engine.YoudaoTranslationEngine
@@ -63,7 +65,15 @@ val dataModule = module {
     single { DefaultSettingsRepository(get()) } bind SettingsRepository::class
     single { TranslationCredentialsStore(androidContext()) }
 
-    single { FFmpegKitEngine() } bind FFmpegEngine::class
+    single { FFmpegKitEngine() }
+    single { Media3TransformerEngine(androidContext()) }
+    single {
+        RoutingMediaEngine(
+            ffmpeg = get(),
+            media3 = get(),
+            settings = get(),
+        )
+    } bind FFmpegEngine::class
     single { WhisperJniEngine(get()) } bind WhisperEngine::class
 
     single { MlKitTranslationEngine(get()) }

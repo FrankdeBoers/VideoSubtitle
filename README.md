@@ -13,7 +13,7 @@ An Android app for the offline pipeline **Pick a local video → transcribe with
 This project is built **spec-first**, not code-first. The two docs below are the contract; the code is the implementation of that contract. **Read them in order before writing or reviewing any non-trivial change.**
 
 1. [`docs/SDD.md`](./docs/SDD.md) — Spec / Design Document. Goals & non-goals (§1), end-to-end user flow (§2), layered architecture (§3), tech-stack decisions with rationale (§4), MVVM conventions (§5), the data pipeline with exact FFmpeg / Whisper command shapes (§6), domain model (§7), risk register (§8), build & permission checklist (§11), v1 acceptance criteria (§12).
-2. [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) — Phased build-out (Phase 0 scaffold → Phase 7 settings/UX polish). Each phase carries: explicit goal, key deliverables (code + docs), acceptance tests, risks. **Currently at end of Phase 7.**
+2. [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) — Phased build-out (Phase 0 scaffold → Phase 8 Android Media backend). Each phase carries: explicit goal, key deliverables (code + docs), acceptance tests, risks. **Currently at end of Phase 8.**
 
 **SDD process rules** (carried from `IMPLEMENTATION_PLAN.md` and `CLAUDE.md`):
 
@@ -61,6 +61,8 @@ Step shapes mirror VideoCaptioner verbatim:
 - **Burn — hard** (re-encode, default): `-vcodec libx264 -crf 23 -preset <preset> -vf "subtitles='<srt>'"`. Same as `add_subtitles`.
 - **Burn — soft** (mp4/mov only, no re-encode): `-c:v copy -c:a copy -c:s mov_text`.
 
+Steps [2] and [5] are routed through `RoutingMediaEngine` (`data/engine/RoutingMediaEngine.kt`), which dispatches to either the FFmpeg path above or the Android Media (Media3 Transformer + MediaCodec) path based on the user's "Processing engine" setting. See **Processing engine** below for the fallback rule.
+
 Disk-space gate: Extract and Burn refuse to start if `cacheDir` has less than `2 × source.length()` free (`StatFs`).
 
 ## Features
@@ -69,6 +71,7 @@ Disk-space gate: Extract and Burn refuse to start if `cacheDir` has less than `2
 - **Whisper models** — Tiny / Base / Small (GGML, downloaded from HuggingFace, **SHA-256 verified**); mismatched downloads fail loud rather than feed corrupt weights to whisper.cpp.
 - **Multi-language transcription** — Auto / 中文 / English / 日本語 / 한국어, with per-language `initial_prompt` to nudge the decoder (full-width punctuation for Chinese, etc.).
 - **Hard or soft subtitle burn** — hard re-encode (any container) or `mov_text` mux (mp4/mov, faster).
+- **Processing engine (FFmpeg vs Android Media)** — user-selectable in Settings → Output. **FFmpeg (Software)** is the default: full libass styling, broadest container compatibility, slower on long videos. **Android Media (Hardware)** routes through Media3 Transformer + MediaCodec for hardware decode + encode and `OverlayEffect` subtitle compositing on the GPU; faster on long videos. The hardware path can't reproduce libass `{\fs..\c..}` per-line overrides, so when bilingual subtitles use distinct styling for the translated track, that single burn call silently falls back to FFmpeg. Both paths honor the same `BurnOptions` shape.
 - **Subtitle text/timing editor** — RecyclerView per-segment editing with back-press unsaved-changes confirm.
 - **Subtitle style editor** — font size 16–60 sp, color, outline, 9-grid alignment, vertical/horizontal margin, optional translucent background, with a 1080×720 preview that scales correctly to phone screens.
 - **Bilingual output (post-v1 extension)** — keep original only, translated only, or both stacked, each with its own font size / color. Default translator is ML Kit on-device; online providers are opt-in and break the offline-first invariant.
@@ -90,6 +93,7 @@ Disk-space gate: Extract and Burn refuse to start if `cacheDir` has less than `2
 | Image loading | Coil (video thumbnails) |
 | ASR | Vendored `whisper.cpp` v1.7.5 under `app/src/main/cpp/whisper.cpp/`, NDK + CMake → `libwhisper.so`. Kotlin facade at `com.whispercpp.whisper.WhisperLib` (`object`, stable JNI symbols) |
 | Video / Audio | FFmpegKit `6.0.LTS` (`ffmpeg-kit-full-gpl`, includes libass + fontconfig + freetype). Pulled from Aliyun / HuaweiCloud Maven mirrors since FFmpegKit was removed from Maven Central in 2025; `content { includeGroup("com.arthenica") }` in `settings.gradle.kts` strictly isolates these mirrors |
+| Hardware path (optional) | Media3 Transformer `1.4.1` (`androidx.media3:media3-transformer/effect/common`) — MediaCodec hardware decode + encode, `OverlayEffect` for subtitle compositing. Selected per user via Settings → Output; FFmpeg remains the default and the only path with full libass parity |
 | Translation (offline) | Google ML Kit on-device translation |
 | Logging | Timber |
 | Tests | JUnit4 + Truth + Turbine + MockK; Espresso reserved for core paths |
@@ -148,6 +152,7 @@ A couple of non-obvious ones — full list lives in [`CLAUDE.md`](./CLAUDE.md):
 - `whisper-jni` ships only desktop binaries (macOS/Linux/Windows GLIBC), so we vendor `whisper.cpp` source instead.
 - libass on Android needs explicit font-directory setup — see `VideoSubtitleApp.onCreate()`. Without it, burn re-encodes successfully but every glyph renders blank.
 - API 34+ FGS uses type **`dataSync`**, not `mediaProcessing` (Android 16 / targetSdk 36 rejects `mediaProcessing` starts with `InvalidForegroundServiceTypeException`). This is a deliberate divergence from SDD §11; both share the same 6h/day quota.
+- Media3 burn fallback is automatic: `RoutingMediaEngine.burnSubtitles` checks `BurnOptions.fontSizeTranslated` / `fontColorTranslatedArgb` / `outlineWidthTranslated`; any one being non-null forces the FFmpeg path even when "Android Media" is selected. The hint under the radio button in Settings → Output explains this to users; Timber logs the routing decision so it's debuggable from `adb logcat`.
 
 ## Divergences from SDD
 

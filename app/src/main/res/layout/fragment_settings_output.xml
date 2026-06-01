@@ -29,6 +29,42 @@
             android:paddingHorizontal="16dp"
             android:paddingVertical="12dp">
 
+            <TextView
+                style="@style/SettingsGroupHeader"
+                android:text="@string/settings_engine_section" />
+
+            <RadioGroup
+                android:id="@+id/group_media_backend"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <com.google.android.material.radiobutton.MaterialRadioButton
+                    android:id="@+id/radio_ffmpeg"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_engine_ffmpeg" />
+                <TextView
+                    style="@style/SettingsHint"
+                    android:layout_marginStart="32dp"
+                    android:text="@string/settings_engine_ffmpeg_desc" />
+
+                <com.google.android.material.radiobutton.MaterialRadioButton
+                    android:id="@+id/radio_android_media"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/settings_engine_android_media" />
+                <TextView
+                    style="@style/SettingsHint"
+                    android:layout_marginStart="32dp"
+                    android:text="@string/settings_engine_android_media_desc" />
+            </RadioGroup>
+
+            <TextView
+                style="@style/SettingsGroupHeader"
+                android:text="@string/settings_engine_section_format" />
+
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

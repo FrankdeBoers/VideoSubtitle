@@ -358,6 +358,47 @@ data class WhisperConfig(
 
 ---
 
+## 阶段 8 — Android Media 后端（可选硬件加速）✅ 已落地
+
+**目标**：在 `extractAudio` 与 `burnSubtitles` 两个 CPU 密集步骤上引入 MediaCodec / Media3 Transformer 硬件路径，由用户在 Settings 里二选一。FFmpegKit 仍是默认与回退路径，不破坏现有任何能力；只在 SDD §4.2 risk table 已标注的"v2 Media3 评估"提前到 v1。
+
+### 8.1 设置项 ✅
+- 新枚举 `domain/model/MediaBackend.kt`：`Ffmpeg` / `AndroidMedia`。
+- `AppSettings.mediaBackend: MediaBackend = MediaBackend.Ffmpeg`，默认 FFmpeg —— 老用户升级后行为完全不变。
+- 持久化 key `media_backend`，仿 `burn_mode` 模式。`SettingsRepository.setMediaBackend` / `SettingsViewModel.setMediaBackend` 一一映射。
+
+### 8.2 引擎拆分 ✅
+- `data/engine/Media3TransformerEngine.kt`（新）实现 `FFmpegEngine`：
+  - `extractAudio`：`MediaExtractor` 选音频轨 → `MediaCodec` 解码 PCM → 通道平均降混到单声道 → Bresenham 风格重采样到 16kHz → 写 44 字节 WAV header + raw PCM。整个流程不涉及视频解码，与 FFmpeg `-vn` 等价。所有错误包装为 `FfmpegException` 复用现有错误通道。
+  - `burnSubtitles`：`Transformer` + `OverlayEffect(SrtBitmapOverlay)`。`SrtBitmapOverlay`（继承 `BitmapOverlay`）在 `getBitmap(presentationTimeUs)` 中按当前帧对应的 SRT cue 用 `Canvas`/`StaticLayout` 渲染位图，按 `BurnOptions` 的 `fontSize/fontColorArgb/outline*/alignment/marginV/marginH/background` 反映样式；按 cue 缓存位图避免重复渲染。9 宫格对齐通过 `OverlaySettings.setBackgroundFrameAnchor` + `setOverlayFrameAnchor` 两个 anchor 完成。进度通过 `Transformer.getProgress(ProgressHolder)` 主线程 250ms 轮询。
+  - 共享 SRT 解析：`data/engine/SrtBodyFilter.kt`（新）暴露 `parseSrt(text): List<SrtCue>` 与 `SrtCue.filterBody(SubtitleDisplay)`，两个引擎都用。FFmpegKitEngine 仍保留自己的 `writeStyledBilingualSrt` —— 它额外做 ASS inline override 注入，那是 libass 专属。
+- `data/engine/RoutingMediaEngine.kt`（新）实现 `FFmpegEngine`，构造接收 `(FFmpegKitEngine, Media3TransformerEngine, SettingsRepository)`：
+  - `extractAudio`：`settings.current().mediaBackend` 直接二选一。
+  - `burnSubtitles`：`AndroidMedia` 路径上若 `BurnOptions` 含原文/译文不同样式（`fontSizeTranslated` / `fontColorTranslatedArgb` / `outlineWidthTranslated` 任一非空）→ 静默回退到 FFmpeg。这是 SDD §6.2 / §8 中明示的回退规则。
+- DI（`di/DataModule.kt`）：原 `single { FFmpegKitEngine() } bind FFmpegEngine::class` 拆成三条 `single`，最外层把 `RoutingMediaEngine` bind 到 `FFmpegEngine::class` —— 上游 `ExtractAudioUseCase` / `BurnSubtitlesUseCase` / `TaskOrchestrator` 一行未改。
+
+### 8.3 UI ✅
+- `res/layout/fragment_settings_output.xml`：在 preset 下拉之上插入 "处理引擎" 段，`RadioGroup` 含两个 `MaterialRadioButton`，每个下方一行 `SettingsHint` TextView 说明该路径的取舍与回退规则。
+- `SettingsOutputFragment` 监听 `groupMediaBackend.checkedRadioButtonId`，调用 `viewModel.setMediaBackend(...)`；`render(s)` 反向把 `s.mediaBackend` 映射到 `check(...)`。
+- `SettingsFragment.renderOutput()` 概要从 `%1$s · %2$s` 扩展到 `%1$s · %2$s · %3$s`（preset · burnMode · backend），三个 `_short` strings 跟语言切换。
+
+### 8.4 依赖 ✅
+- `gradle/libs.versions.toml` 新增 `media3 = "1.4.1"`，并 catalog 化 `media3-transformer` / `media3-effect` / `media3-common`。
+- `app/build.gradle.kts` 引入对应三条 implementation。
+
+### 验收
+- ✅ `./gradlew :app:assembleDebug` 成功（含 R8/资源合并）。
+- ⏳ 真机：选 `AndroidMedia` 跑 1min mp4，无 per-line override 时走 Media3 路径（Timber `burnSubtitles routed to Media3TransformerEngine`），输出 `ffprobe` 编码信息为硬件 H.264 格式；切回 `FFmpeg` 同视频跑通。
+- ⏳ 真机：开启原文/译文不同字号/颜色 → 选 `AndroidMedia` → Timber 输出 fallback 日志，实际走 FFmpeg 路径。
+- ⏳ 取消正在跑的 Media3 任务：`Transformer.cancel()` 被触发，部分写出文件被清理。
+
+### 风险
+- Media3 1.4.x 在 ABI splits 下未发现兼容问题（与 ffmpeg-kit-full-gpl 共存的 `libc++_shared.so` 警告与之前相同，AGP 自动选 app build 输出）。
+- `OverlaySettings`（非 `StaticOverlaySettings`）API 在 1.4.1 仍是稳定符号；后续升级到 1.5+ 时需评估迁移成本。
+- 硬件解码兼容性：少量 codec 在低端设备上可能拒绝某些容器，已通过把 `ExportException` 转 `FfmpegException` 走现有错误通道，并提示用户 Settings 切回 FFmpeg。
+
+---
+
 ## 全局风险与依赖
 
 | 风险 | 缓解 |
@@ -387,5 +428,6 @@ data class WhisperConfig(
 | M2 字幕生成 | 2, 3 | 选视频后能生成 SRT |
 | M3 编辑 + 合成 | 4, 5 | 能编辑字幕并烧回视频 |
 | M4 后台 + 体验 | 6, 7 | 可发布的 v1.0.0 |
+| M5 硬件路径 | 8 | 用户可选 Android Media 后端，长视频明显加速 |
 
 每个 M 完成后做一次回归测试矩阵执行，并按需更新 SDD。

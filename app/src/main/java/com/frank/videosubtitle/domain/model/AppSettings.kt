@@ -29,6 +29,7 @@ data class AppSettings(
     val subtitleDisplay: SubtitleDisplay = SubtitleDisplay.Both,
     val translateToChinese: Boolean = true,
     val translationProvider: TranslationProvider = TranslationProvider.MlKit,
+    val mediaBackend: MediaBackend = MediaBackend.Ffmpeg,
 ) {
     companion object {
         const val MIN_FONT_SIZE = 16

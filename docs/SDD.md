@@ -184,6 +184,7 @@ com.frank.videosubtitle
 - **供应链变更（2025 → 现在）**：作者 2025 年初归档 `arthenica/ffmpeg-kit` 仓库并撤下 Maven Central 的 binary。当前接入路径为通过阿里云 / 华为云 Maven 公共镜像拉取仍被缓存的 `6.0.LTS` AAR（SHA1 `4b3fc143f29a61044bb87b9c8dd80982d7b1c35b` 已比对一致），在 `settings.gradle.kts` 中以 `content { includeGroup("com.arthenica") }` 严格隔离。
 - **风险与 fallback 顺序**：(1) 当前镜像方案 → (2) 自托管 AAR 到 `app/libs/`（73MB）+ git-lfs / 外部分发 → (3) 整体迁移到 Media3 Transformer（音频抽取 + OverlayEffect 字幕渲染，舍弃 FFmpeg 命令行哲学）。把"无 FFmpeg 上游修复"作为已知技术债，列入 v2 评估议程。
 - 包大小代价：`full-gpl` ABI 拆分后单架构 APK 增加 ~25–35MB。设置里默认 ABI splits + R8 关闭混淆 ffmpeg 相关包（`proguard-rules.pro` 添加保留规则）。
+- **Phase 8 修订（2026-06）**：Media3 Transformer 已从"v2 评估"提前到 v1 的**用户可选硬件路径**，与 FFmpegKit 并存。FFmpeg 仍是默认与回退路径；libass 完整样式（双语 ASS inline overrides 等）只能走 FFmpeg。详见 §6.2 Backend selection。
 
 ---
 
@@ -251,6 +252,7 @@ Uri ──[1]──▶ 缓存原视频    ──[2]──▶ 16kHz mono PCM WAV
   ```
 - 输出：`cacheDir/tasks/<taskId>/audio.wav`，16kHz / mono / PCM s16le —— 这是 Whisper 唯一接受的格式。
 - 进度通过 FFmpegKit `Statistics` 回调换算（`time / duration`）。
+- **Backend selection（Phase 8）**：实际接入的是 `RoutingMediaEngine`（`data/engine/RoutingMediaEngine.kt`），按用户的 `AppSettings.mediaBackend` 在 `FFmpegKitEngine` 与 `Media3TransformerEngine` 间二选一。Media3 路径用 `MediaExtractor` + `MediaCodec` 解码音频，downmix → 16kHz mono → 写 44 字节 WAV header + raw PCM；不走视频解码（与 `-vn` 等价）。两路输出格式完全等价，下游 Whisper 不感知差异。
 
 **[3] Whisper 转写 — `WhisperEngine.transcribe(wav, config)`**
 - 输入参数：
@@ -278,6 +280,7 @@ Uri ──[1]──▶ 缓存原视频    ──[2]──▶ 16kHz mono PCM WAV
   -i <video> -i <srt> -c:v copy -c:a copy -c:s mov_text -y <output>
   ```
 - 进度通过 FFmpegKit `Statistics.time / videoMeta.durationMs` 计算。
+- **Backend selection（Phase 8）**：同样经 `RoutingMediaEngine` 路由。当用户选 `AndroidMedia` 时，硬字幕走 Media3 `Transformer` + `OverlayEffect`：`SrtBitmapOverlay` 在 `getBitmap(presentationTimeUs)` 里按当前帧对应的 SRT cue 用 `Canvas`/`StaticLayout` 渲染位图，进而合成。**回退规则**：当 `BurnOptions` 含原文/译文不同样式（`fontSizeTranslated` / `fontColorTranslatedArgb` / `outlineWidthTranslated` 任一非空）时，本次调用静默回退到 `FFmpegKitEngine` —— libass 的 `{\fs..\c..}` per-line override 在 OverlayEffect 上无对应实现。软字幕（`mov_text`）始终走 FFmpeg 路径（Media3 没有等价的纯 mux pass-through）。
 
 **[6] 落地 MediaStore — `MediaStoreSaver.saveToMovies(file, displayName)`**
 - API 29+ 用 `MediaStore.Video.Media.EXTERNAL_CONTENT_URI` + `RELATIVE_PATH = Movies/VideoSubtitle/`。
@@ -356,8 +359,10 @@ Room 实体只持久化 `taskId, video json, stage 名, totalPercent, subtitlePa
 | 中文识别错字多 | 影响主要用户场景 | 注入中文 prompt（同 VideoCaptioner）；语言被识别为 zh 时 prefer simplified |
 | 长视频内存爆炸 | OOM | 永远走"音频提取到磁盘 → 流式喂给 Whisper"，不在内存里保留整段 PCM |
 | `subtitles=` filter 路径转义错 | 合成失败 | 复制字幕到 `cacheDir/tasks/<id>/subs.srt`（ASCII 路径）后再传给 ffmpeg，规避中文/空格路径 |
-| FFmpeg 重新编码慢 | 720P+ 视频耗时 | 默认 `preset=medium`，设置中提供 `ultrafast` 选项；提示用户软字幕模式更快 |
+| FFmpeg 重新编码慢 | 720P+ 视频耗时 | 默认 `preset=medium`，设置中提供 `ultrafast` 选项；提示用户软字幕模式更快；Phase 8 起用户可切换到 Media3 Transformer 走 MediaCodec 硬件编码 |
 | 进程被杀任务丢失 | 状态混乱 | Room 持久化任务；恢复时检查中间产物是否存在，从最近一个完成的步骤继续 |
+| Media3 Transformer 字幕样式不对齐 libass | OverlayEffect 无法复刻 ASS `{\fs..\c..}` per-line override，双语异样式渲染丢失 | `RoutingMediaEngine.burnSubtitles` 在检测到 `fontSizeTranslated`/`fontColorTranslatedArgb`/`outlineWidthTranslated` 任一非空时静默回退到 `FFmpegKitEngine`；UI hint（`settings_engine_android_media_desc`）在用户选择硬件路径时明示该回退规则 |
+| MediaCodec 解码器对某些容器/编码不兼容 | Media3 路径在小众视频上 `ExportException` | 失败由 `Media3TransformerEngine` 包装为 `FfmpegException` 经现有错误通道上报；用户可在 Settings 切回 FFmpeg 路径重试，FFmpeg 软件解码兼容面更广 |
 
 ---
 

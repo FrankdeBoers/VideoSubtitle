@@ -13,7 +13,7 @@
 本项目坚持 **先规约、再代码**：下面两份文档是契约，代码是契约的实现。**任何非琐碎改动开工前都按顺序读完。**
 
 1. [`docs/SDD.md`](./docs/SDD.md) —— Spec / Design Document。范围与非目标（§1）、端到端用户流程（§2）、分层架构（§3）、含理由的技术选型（§4）、MVVM 落地约定（§5）、含具体 FFmpeg / Whisper 命令形状的处理管线（§6）、领域模型（§7）、风险登记（§8）、构建与权限清单（§11）、v1 验收标准（§12）。
-2. [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) —— 分阶段实施计划（Phase 0 脚手架 → Phase 7 设置/UX 打磨）。每个 Phase 都给出：明确目标、关键交付物（代码 + 文档）、验收标准、风险点。**当前进度：Phase 7 末尾。**
+2. [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) —— 分阶段实施计划（Phase 0 脚手架 → Phase 8 Android Media 后端）。每个 Phase 都给出：明确目标、关键交付物（代码 + 文档）、验收标准、风险点。**当前进度：Phase 8 末尾。**
 
 **SDD 过程约束**（沿用自 `IMPLEMENTATION_PLAN.md` 与 `CLAUDE.md`）：
 
@@ -61,6 +61,8 @@ Uri ──[1]──▶ cacheDir/tasks/<id>/source.<ext>    ──[2]──▶ au
 - **硬字幕**（重新编码，默认）：`-vcodec libx264 -crf 23 -preset <preset> -vf "subtitles='<srt>'"`，对齐 `add_subtitles`。
 - **软字幕**（仅 mp4/mov，不重编码）：`-c:v copy -c:a copy -c:s mov_text`。
 
+[2] 与 [5] 两步均经 `RoutingMediaEngine`（`data/engine/RoutingMediaEngine.kt`）路由 —— 按用户在"处理引擎"设置里的选择，决定走上文 FFmpeg 路径或 Android Media（Media3 Transformer + MediaCodec）路径。回退规则见下文 **处理引擎** 一节。
+
 磁盘空间检查：提取与烧录前用 `StatFs` 检查 `cacheDir`，剩余空间不足 `2 × 源视频大小` 直接失败。
 
 ## 功能特性
@@ -69,6 +71,7 @@ Uri ──[1]──▶ cacheDir/tasks/<id>/source.<ext>    ──[2]──▶ au
 - **Whisper 模型可选** —— Tiny / Base / Small（GGML，从 HuggingFace 下载，**SHA-256 校验**）。校验不通过直接报错，绝不把损坏的权重喂给 whisper.cpp。
 - **多语言识别** —— 自动 / 中文 / English / 日本語 / 한국어。每种语言带不同的 `initial_prompt` 来引导解码（例如中文会注入"以下是普通话的句子，使用全角标点。"）。
 - **硬字幕 / 软字幕可切换** —— 硬字幕重编码（任意容器）或 `mov_text` 封装（仅 mp4/mov，更快）。
+- **处理引擎可选（FFmpeg / Android Media）** —— 在 设置 → 输出 中选择。**FFmpeg（软件）** 是默认：完整 libass 样式、最广容器兼容性，长视频较慢。**Android Media（硬件）** 走 Media3 Transformer + MediaCodec 硬件解码 + 编码，字幕通过 GPU 上的 `OverlayEffect` 合成，长视频明显更快。硬件路径无法复刻 libass 的 `{\fs..\c..}` per-line override，所以当原文/译文样式不同时，本次烧录调用静默回退到 FFmpeg。两条路径接收同一份 `BurnOptions`。
 - **字幕文本/时间轴编辑** —— RecyclerView 行级编辑，返回键会确认未保存的修改。
 - **字幕样式编辑** —— 字号 16–60 sp、颜色、描边、九宫格对齐、上下/左右边距、可选半透明背景。预览以 1080×720 为基准，按手机屏幕等比缩放。
 - **双语字幕（v1 之外的扩展）** —— 仅原文 / 仅译文 / 同时显示，原文与译文可分别配置字号、颜色。默认翻译后端为 ML Kit 端侧；在线后端属于打破"离线优先"不变量的可选项。
@@ -90,6 +93,7 @@ Uri ──[1]──▶ cacheDir/tasks/<id>/source.<ext>    ──[2]──▶ au
 | 图片 | Coil（视频缩略图） |
 | 语音识别 | 内置 `whisper.cpp` v1.7.5 源码于 `app/src/main/cpp/whisper.cpp/`，NDK + CMake 构建为 `libwhisper.so`。Kotlin 门面：`com.whispercpp.whisper.WhisperLib`（`object`，保证 JNI 符号稳定） |
 | 视频 / 音频 | FFmpegKit `6.0.LTS`（`ffmpeg-kit-full-gpl`，含 libass + fontconfig + freetype）。FFmpegKit 已于 2025 年从 Maven Central 下架，工程改用阿里云 / 华为云 Maven 镜像；`settings.gradle.kts` 中以 `content { includeGroup("com.arthenica") }` 严格隔离 |
+| 硬件路径（可选） | Media3 Transformer `1.4.1`（`androidx.media3:media3-transformer/effect/common`）—— MediaCodec 硬件解码 + 编码、`OverlayEffect` 字幕合成。由用户在 设置 → 输出 中切换；FFmpeg 仍是默认与唯一支持完整 libass 样式的路径 |
 | 翻译（离线） | Google ML Kit 端侧翻译 |
 | 日志 | Timber |
 | 测试 | JUnit4 + Truth + Turbine + MockK；Espresso 仅核心路径 |
@@ -148,6 +152,7 @@ app/src/main/java/com/frank/videosubtitle/
 - `whisper-jni` 只发布桌面端二进制（macOS/Linux/Windows GLIBC），所以工程内置了 `whisper.cpp` 源码。
 - Android 上 libass 必须显式注册字体目录，详见 `VideoSubtitleApp.onCreate()`。否则烧录能正常完成，但所有字符渲染为空白。
 - API 34+ 的前台服务类型用 **`dataSync`**，不是 `mediaProcessing`（Android 16 / targetSdk 36 会抛 `InvalidForegroundServiceTypeException` 拒绝启动）。这是与 SDD §11 的有意偏离；两者共享同样的 6h/天 配额。
+- Media3 烧录回退是自动的：`RoutingMediaEngine.burnSubtitles` 检查 `BurnOptions.fontSizeTranslated` / `fontColorTranslatedArgb` / `outlineWidthTranslated`，三者任一非空就会强制走 FFmpeg —— 即便用户选了 "Android Media"。设置 → 输出里 radio 下方的 hint 会向用户解释这点；Timber 也会记录路由结果，方便 `adb logcat` 调试。
 
 ## 与 SDD 的偏离
 

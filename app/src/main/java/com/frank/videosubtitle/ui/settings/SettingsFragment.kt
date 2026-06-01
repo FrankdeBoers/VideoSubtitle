@@ -11,6 +11,7 @@ import com.frank.videosubtitle.databinding.FragmentSettingsBinding
 import com.frank.videosubtitle.databinding.ViewSettingsRowBinding
 import com.frank.videosubtitle.domain.engine.BurnMode
 import com.frank.videosubtitle.domain.model.AppSettings
+import com.frank.videosubtitle.domain.model.MediaBackend
 import com.frank.videosubtitle.ui.common.BaseFragment
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.activityViewModel
@@ -78,10 +79,17 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>(FragmentSettingsB
             if (s.burnMode == BurnMode.SOFT) R.string.settings_format_mp4_soft
             else R.string.settings_format_hard,
         )
+        val backend = getString(
+            when (s.mediaBackend) {
+                MediaBackend.AndroidMedia -> R.string.settings_engine_android_media_short
+                MediaBackend.Ffmpeg -> R.string.settings_engine_ffmpeg_short
+            },
+        )
         binding.rowOutput.subtitle.text = getString(
             R.string.settings_summary_output_format,
             ctx.presetLabel(s.preset),
             format,
+            backend,
         )
     }
 

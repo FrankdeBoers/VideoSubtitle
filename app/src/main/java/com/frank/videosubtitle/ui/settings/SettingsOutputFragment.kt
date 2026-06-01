@@ -10,6 +10,7 @@ import com.frank.videosubtitle.R
 import com.frank.videosubtitle.databinding.FragmentSettingsOutputBinding
 import com.frank.videosubtitle.domain.engine.BurnMode
 import com.frank.videosubtitle.domain.model.AppSettings
+import com.frank.videosubtitle.domain.model.MediaBackend
 import com.frank.videosubtitle.domain.model.VideoPreset
 import com.frank.videosubtitle.ui.common.BaseFragment
 import kotlinx.coroutines.launch
@@ -45,6 +46,16 @@ class SettingsOutputFragment :
             viewModel.setBurnMode(if (checked) BurnMode.SOFT else BurnMode.HARD)
         }
 
+        binding.groupMediaBackend.setOnCheckedChangeListener { _, checkedId ->
+            if (suppressCallbacks) return@setOnCheckedChangeListener
+            val choice = if (checkedId == R.id.radio_android_media) {
+                MediaBackend.AndroidMedia
+            } else {
+                MediaBackend.Ffmpeg
+            }
+            viewModel.setMediaBackend(choice)
+        }
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.state.collect { render(it) }
@@ -57,6 +68,13 @@ class SettingsOutputFragment :
         try {
             binding.dropdownPreset.setText(requireContext().presetLabel(s.preset), false)
             binding.switchSoft.isChecked = s.burnMode == BurnMode.SOFT
+            val checkedId = when (s.mediaBackend) {
+                MediaBackend.AndroidMedia -> R.id.radio_android_media
+                MediaBackend.Ffmpeg -> R.id.radio_ffmpeg
+            }
+            if (binding.groupMediaBackend.checkedRadioButtonId != checkedId) {
+                binding.groupMediaBackend.check(checkedId)
+            }
         } finally {
             suppressCallbacks = false
         }

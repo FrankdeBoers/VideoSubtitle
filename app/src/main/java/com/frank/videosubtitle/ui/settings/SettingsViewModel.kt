@@ -17,6 +17,7 @@ import com.frank.videosubtitle.domain.engine.SubtitleAlignment
 import com.frank.videosubtitle.domain.engine.SubtitleDisplay
 import com.frank.videosubtitle.domain.model.AppSettings
 import com.frank.videosubtitle.domain.model.LanguagePref
+import com.frank.videosubtitle.domain.model.MediaBackend
 import com.frank.videosubtitle.domain.model.SubtitleColor
 import com.frank.videosubtitle.domain.model.TaskStage
 import com.frank.videosubtitle.domain.model.TranslationProvider
@@ -87,6 +88,8 @@ class SettingsViewModel(
     fun setTranslateToChinese(enabled: Boolean) = viewModelScope.launch { settings.setTranslateToChinese(enabled) }
     fun setTranslationProvider(provider: TranslationProvider) =
         viewModelScope.launch { settings.setTranslationProvider(provider) }
+    fun setMediaBackend(backend: MediaBackend) =
+        viewModelScope.launch { settings.setMediaBackend(backend) }
 
     fun setBaiduCreds(creds: BaiduCreds) {
         credentialsStore.setBaidu(creds)
