@@ -53,6 +53,8 @@
     <string name="editor_export_save_first">已自动保存改动</string>
     <string name="progress_burn_done">字幕已合成</string>
     <string name="progress_open_in_player">在播放器中打开</string>
+    <string name="progress_edit_subtitle">编辑字幕</string>
+    <string name="progress_regenerate_video">重新生成视频</string>
     <string name="progress_burn_failed_open">无法打开播放器</string>
 
     <!-- Service / notifications -->

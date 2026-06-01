@@ -61,6 +61,8 @@ class ProgressViewModel(
                     is TaskStage.Failed -> 0 to false
                     TaskStage.Idle -> 0 to false
                 }
+                val srt = File(task.video.cachedPath).parentFile?.let { File(it, "subtitle.srt") }
+                val subtitleAvailable = srt != null && srt.exists() && srt.length() > 0
                 _uiState.update { current ->
                     val modelReady = current.model is ModelStatus.Ready
                     val canStart = !running &&
@@ -72,6 +74,7 @@ class ProgressViewModel(
                         running = running,
                         canStart = canStart,
                         canCancel = running,
+                        subtitleAvailable = subtitleAvailable,
                     )
                 }
             }
@@ -85,6 +88,11 @@ class ProgressViewModel(
 
     fun cancel() {
         orchestrator.cancel(taskId)
+    }
+
+    fun regenerateVideo() {
+        if (!_uiState.value.subtitleAvailable || _uiState.value.running) return
+        orchestrator.startBurn(taskId)
     }
 
     fun retry() {

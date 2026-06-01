@@ -53,6 +53,8 @@
     <string name="editor_export_save_first">Changes auto-saved</string>
     <string name="progress_burn_done">Subtitles burned in</string>
     <string name="progress_open_in_player">Open in player</string>
+    <string name="progress_edit_subtitle">Edit subtitle</string>
+    <string name="progress_regenerate_video">Regenerate video</string>
     <string name="progress_burn_failed_open">No player available</string>
 
     <!-- Service / notifications -->

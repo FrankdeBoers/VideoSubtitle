@@ -42,6 +42,12 @@ class ProgressFragment : BaseFragment<FragmentProgressBinding>(FragmentProgressB
                 ?: return@setOnClickListener
             openInPlayer(outputPath)
         }
+        binding.btnEditSubtitle.setOnClickListener {
+            findNavController().navigate(
+                ProgressFragmentDirections.actionProgressToEditor(args.taskId)
+            )
+        }
+        binding.btnRegenerate.setOnClickListener { viewModel.regenerateVideo() }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -64,12 +70,13 @@ class ProgressFragment : BaseFragment<FragmentProgressBinding>(FragmentProgressB
         if (thumb != null) {
             binding.thumbnail.load(thumb) { crossfade(true) }
         }
-        binding.progress.isVisible = state.percent in 1..99 || state.running
         binding.progress.setProgressCompat(state.percent, true)
         binding.stageLabel.text = stageLabel(state)
         binding.btnStart.isEnabled = state.canStart
         binding.btnCancel.isEnabled = state.canCancel
         binding.btnOpenPlayer.isVisible = task.stage is TaskStage.Done
+        binding.btnEditSubtitle.isEnabled = state.subtitleAvailable
+        binding.btnRegenerate.isEnabled = state.subtitleAvailable && !state.running
 
         val failed = task.stage as? TaskStage.Failed
         if (failed != null) {

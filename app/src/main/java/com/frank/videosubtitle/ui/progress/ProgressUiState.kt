@@ -8,6 +8,7 @@ data class ProgressUiState(
     val running: Boolean = false,
     val canStart: Boolean = false,
     val canCancel: Boolean = false,
+    val subtitleAvailable: Boolean = false,
     val model: ModelStatus = ModelStatus.Unknown,
 )
 
