@@ -81,6 +81,16 @@
 
     <!-- Settings -->
     <string name="settings_title">设置</string>
+    <string name="settings_summary_subtitle">Whisper 离线识别 · FFmpeg 合成</string>
+    <string name="settings_group_generation">字幕生成</string>
+    <string name="settings_group_presentation">字幕呈现</string>
+    <string name="settings_group_storage">存储</string>
+    <string name="settings_value_off">未启用</string>
+    <string name="settings_summary_style">字号、颜色、位置</string>
+    <string name="settings_summary_cache">清理音频与字幕草稿</string>
+    <string name="settings_summary_output_format">%1$s · %2$s</string>
+    <string name="settings_format_mp4_soft">MP4 软字幕</string>
+    <string name="settings_format_hard">硬字幕</string>
     <string name="settings_section_model">语音识别模型</string>
     <string name="settings_model_tiny_name">Tiny · %1$s</string>
     <string name="settings_model_base_name">Base · %1$s</string>

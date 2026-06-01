@@ -81,6 +81,16 @@
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
+    <string name="settings_summary_subtitle">On-device Whisper · FFmpeg burn-in</string>
+    <string name="settings_group_generation">Subtitle generation</string>
+    <string name="settings_group_presentation">Subtitle presentation</string>
+    <string name="settings_group_storage">Storage</string>
+    <string name="settings_value_off">Off</string>
+    <string name="settings_summary_style">Font size, color, position</string>
+    <string name="settings_summary_cache">Clear audio &amp; subtitle drafts</string>
+    <string name="settings_summary_output_format">%1$s · %2$s</string>
+    <string name="settings_format_mp4_soft">MP4 soft subs</string>
+    <string name="settings_format_hard">Hard subs</string>
     <string name="settings_section_model">Speech model</string>
     <string name="settings_model_tiny_name">Tiny · %1$s</string>
     <string name="settings_model_base_name">Base · %1$s</string>
