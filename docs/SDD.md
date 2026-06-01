@@ -137,7 +137,7 @@ com.frank.videosubtitle
 | 语言 | Kotlin（JVM 11） | 与 AGP 9.1.1 默认 toolchain 一致 |
 | UI 框架 | **XML + ViewBinding** + Navigation Component + Fragment | 已确认。复杂列表/编辑也用 RecyclerView 实现，不引入 Compose |
 | 异步 | Kotlin Coroutines + Flow | ViewModel 用 `viewModelScope`，长任务在 Application 域 scope |
-| DI | Hilt | 单一选择，不做手写工厂 |
+| DI | **Koin 4.1.0**（AGP 9 兼容版的 Hilt 尚未发布，详见 §4.3） | 单一选择，不做手写工厂 |
 | 持久化 | Room（任务历史）+ 文件（SRT、模型）+ DataStore（偏好） | 不用 SharedPreferences |
 | 后台任务 | WorkManager + 前台 Service（合成耗时大） | 任务可观察、可取消、可恢复 |
 | 视频播放 | Media3 ExoPlayer（编辑预览用，可选） | v1 可先不内嵌播放器 |
@@ -161,6 +161,17 @@ com.frank.videosubtitle
   - **vilassn/whisper_android**：把 whisper.cpp 编成 AAR 模块，体积更可控。
   - **Argmax WhisperKit Android**：最新方案，工程化更完整，但生态/版本较新。
 - 集成前必须验证：`arm64-v8a` 和 `armeabi-v7a` 都跑得通；Vulkan/OpenCL 加速在多数机型不可用，CPU 推理速率以 `base` 模型 / 1080P 5min 视频 ≈ 实时倍率 1× 为基线。
+
+### 4.3 DI：为什么是 Koin 而不是 Hilt
+
+最初规划是 Hilt（codegen 路线）。Phase 0 接入时遇到：Hilt Gradle 插件在 AGP 9.x 上抛 `Android BaseExtension not found`。修复 PR（dagger #5084）2026-01-20 才合并到 main，**Maven Central 上还没有任何兼容 AGP 9 的 Hilt 发布版（最新是 2025-04 的 2.56.2）**。
+
+可选项：
+1. 降级 AGP 到 8.9.x —— 失去 `compileSdk { release(36) { minorApiLevel = 1 } }` DSL；与现有项目 AGP 9.1.1 选型冲突。
+2. 等 Hilt 新版本 —— 阻塞 Phase 0。
+3. 切到 Koin —— 无 codegen、无 Gradle 插件、与 AGP 9 零冲突；语义上 `@Inject` 构造 → `module { single { ... } }` 一一映射。**已采用此项**。
+
+**后续何时考虑切回 Hilt**：当 Hilt 发布 ≥ 2.57 且明确兼容 AGP 9 时，可在一个独立分支上评估迁移。所有依赖注入点都通过 `module {}` 集中声明，迁移成本只限定在 `di/` 目录。
 
 ### 4.2 FFmpegKit 选型说明
 

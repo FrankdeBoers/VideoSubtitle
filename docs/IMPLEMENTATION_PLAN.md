@@ -14,16 +14,16 @@
 
 **目标**：把当前空 Android 项目升级成"能落地 MVVM + Hilt + Navigation"的脚手架，但不引入任何业务代码。
 
-### 0.1 Gradle / 依赖
-- 在 `gradle/libs.versions.toml` 新增（版本号在实施时确认最新稳定）：
-  - `kotlin`, `coroutines`, `lifecycle`, `navigation`, `hilt`, `ksp`, `room`, `datastore`, `okhttp`, `timber`, `mockk`, `turbine`, `truth`, `ffmpegKit`, `whisperJni`, `media3`（可选）。
-- `build.gradle.kts`（root）增加 `kotlin.android`、`hilt`、`ksp`、`safeargs` 插件 alias。
+### 0.1 Gradle / 依赖（已落地）
+- `gradle/libs.versions.toml` 已新增：`coroutines`, `lifecycle`, `navigation`, `koin`, `fragment`, `timber`，并保留 `coreKtx`/`appcompat`/`material`/`activity`/`constraintlayout`。
+- `build.gradle.kts`（root）只挂 `android.application` + `navigation.safeargs` 两个 alias。
+- AGP 9 内建 Kotlin 支持，**不再需要** `org.jetbrains.kotlin.android` 插件（应用会被官方插件主动拒绝，错误信息引用 issuetracker.google.com/438678642）。
 - `app/build.gradle.kts`：
-  - 启用 `kotlin-android`、`kotlin-kapt`（或 `ksp`）、`hilt`、`navigation.safeargs.kotlin` 插件。
-  - `buildFeatures { viewBinding = true }`。
-  - `kotlinOptions { jvmTarget = "11" }`。
-  - 配置 ABI splits：`arm64-v8a`, `armeabi-v7a`。
-  - 加业务依赖（先不加 ffmpeg-kit / whisper-jni，留到对应阶段）。
+  - `buildFeatures { viewBinding = true; buildConfig = true }`（AGP 8.x 起 buildConfig 默认关闭，需显式开启以支持 `BuildConfig.DEBUG`，即使本阶段还没用上）。
+  - 用新 DSL `kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_11) } }`，`import org.jetbrains.kotlin.gradle.dsl.JvmTarget`。
+  - ABI splits：`arm64-v8a`, `armeabi-v7a`，`isUniversalApk = false`。
+  - **KSP 暂未引入**——Phase 0 没有 codegen 处理器（Koin 不需要 KSP）；Phase 1/3 引入 Room 时再加 `ksp` 插件。
+  - 业务依赖：lifecycle / navigation / coroutines / fragment-ktx / koin-android + koin-androidx-navigation / timber。
 
 ### 0.2 应用骨架
 - 新建 `VideoSubtitleApp : Application` 加 `@HiltAndroidApp`，并在 manifest 注册 `android:name=".VideoSubtitleApp"`。
@@ -35,9 +35,11 @@
   - `DispatcherProvider`（IO/Default/Main 抽象，便于测试）。
   - `Result/AppError` sealed types（见 SDD §5.4）。
 
-### 0.3 Hilt 模块占位
-- `di/AppModule`：暴露 `Context`, `DispatcherProvider`, OkHttp。
-- `di/DataModule`：占位接口（`VideoRepository`, `TaskRepository`, ...）绑定到 Fake 实现，先返回硬编码数据。
+### 0.3 DI 模块占位（Koin）
+- `di/AppModule.kt`：单一 Koin module（`val appModule = module { ... }`），目前只绑定 `DispatcherProvider`。后续 Repository / DataSource 直接添加 `single { ... } bind XxxRepository::class`。
+- 进入 Phase 1 前，新增 `di/DataModule.kt` 拆分聚合，再在 `VideoSubtitleApp.startKoin { modules(appModule, dataModule) }` 中合并。
+
+> **DI 历史决策**：原计划 Hilt，因 Hilt 当前 Maven 发布版（2.56.2）与 AGP 9 不兼容（`BaseExtension not found`），改用 Koin 4.1.0。详见 SDD §4.3。
 
 ### 0.4 Lint / 质量门禁
 - 在 `app/build.gradle.kts` 启用 `lintOptions { warningsAsErrors = true; disable += listOf(...) }`（按需）。

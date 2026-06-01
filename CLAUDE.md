@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Android application `com.frank.videosubtitle` (VideoSubtitle). Goal: pick a local video → generate subtitles on-device with Whisper → burn subtitles back into the video with FFmpeg. Currently a scaffolded single-Activity app (`MainActivity` + `activity_main.xml`); feature code has not been built yet.
+Android application `com.frank.videosubtitle` (VideoSubtitle). Goal: pick a local video → generate subtitles on-device with Whisper → burn subtitles back into the video with FFmpeg.
+
+**Current state: end of Phase 0** — MVVM scaffold in place (single Activity + Navigation Component + HomeFragment placeholder, Koin DI, Coroutines/Lifecycle wired, Timber). No business logic yet.
 
 ## Authoritative design docs (read these first)
 
@@ -19,6 +21,13 @@ Android application `com.frank.videosubtitle` (VideoSubtitle). Goal: pick a loca
 - **Domain layer has no Android types.** Repositories convert `Uri` → cached `File` at the boundary. Use cases take/return primitives, `File`, and domain models only.
 - **Pipeline steps are idempotent on disk.** Each phase writes to `cacheDir/tasks/<taskId>/` (`source.<ext>`, `audio.wav`, `subtitle.srt`, etc.) so a killed/restored task can skip already-completed steps.
 
+## Toolchain gotchas (real, not hypothetical)
+
+- **AGP 9.0+ has built-in Kotlin support.** Do NOT apply `org.jetbrains.kotlin.android` — it's actively rejected with `issuetracker.google.com/438678642`. Configure Kotlin via the `kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_11) } }` block (importing `org.jetbrains.kotlin.gradle.dsl.JvmTarget`).
+- **Hilt is not on Maven Central with AGP 9 support yet.** Latest published Hilt (2.56.2, 2025-04) fails with `Android BaseExtension not found` against AGP 9.x. The fix landed on `main` (dagger PR #5084, 2026-01-20) but isn't released. Project uses **Koin 4.1.0** instead. See `docs/SDD.md` §4.3.
+- **`buildFeatures.buildConfig` is off by default in AGP 8+.** Must be explicitly `= true` to use `BuildConfig.DEBUG`.
+- **ABI splits enabled** (`arm64-v8a`, `armeabi-v7a`). If you build on an x86_64 emulator (e.g. Intel Mac), add `x86_64` to the include list locally — don't commit it.
+
 ## Build & test commands
 
 Use the Gradle wrapper from the repo root:
@@ -32,6 +41,23 @@ Use the Gradle wrapper from the repo root:
 - Run a single unit test class: `./gradlew :app:testDebugUnitTest --tests "com.frank.videosubtitle.ExampleUnitTest"`
 - Run a single instrumented test: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.frank.videosubtitle.ExampleInstrumentedTest`
 - Clean: `./gradlew clean`
+
+## Source layout (current)
+
+```
+app/src/main/java/com/frank/videosubtitle/
+├── VideoSubtitleApp.kt    Application + Koin startup + Timber
+├── MainActivity.kt        Single Activity, hosts NavHostFragment, applies edge-to-edge insets
+├── di/AppModule.kt        Koin module (currently only DispatcherProvider)
+├── util/
+│   ├── DispatcherProvider.kt
+│   ├── AppError.kt        sealed AppError (ModelMissing/AudioExtractFailed/...)
+│   └── DomainResult.kt    sealed Success/Failure + map
+├── ui/common/BaseFragment.kt   ViewBinding lifecycle helper
+└── ui/home/HomeFragment.kt     Placeholder fragment
+```
+
+Empty package directories already exist for Phase 1+: `domain/{model,usecase}`, `data/{repository,source}`.
 
 ## Toolchain & SDK
 
