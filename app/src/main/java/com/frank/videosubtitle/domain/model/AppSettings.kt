@@ -31,8 +31,8 @@ data class AppSettings(
     val translationProvider: TranslationProvider = TranslationProvider.MlKit,
 ) {
     companion object {
-        const val MIN_FONT_SIZE = 18
-        const val MAX_FONT_SIZE = 40
+        const val MIN_FONT_SIZE = 16
+        const val MAX_FONT_SIZE = 60
         const val DEFAULT_FONT_SIZE = 24
         const val MIN_MARGIN_V = 0
         const val MAX_MARGIN_V = 200

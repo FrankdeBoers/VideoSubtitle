@@ -73,14 +73,11 @@ class SettingsStyleFragment :
             viewModel.setAlignment(align)
         }
 
-        binding.groupDisplay.addOnButtonCheckedListener { _, checkedId, isChecked ->
-            if (!isChecked || suppressCallbacks) return@addOnButtonCheckedListener
-            val mode = when (checkedId) {
-                R.id.display_both -> SubtitleDisplay.Both
-                R.id.display_main -> SubtitleDisplay.MainOnly
-                R.id.display_translated -> SubtitleDisplay.TranslatedOnly
-                else -> return@addOnButtonCheckedListener
-            }
+        val displayLabels = SubtitleDisplay.entries.map { requireContext().displayLabel(it) }.toTypedArray()
+        binding.dropdownDisplay.setSimpleItems(displayLabels)
+        binding.dropdownDisplay.setOnItemClickListener { _, _, position, _ ->
+            if (suppressCallbacks) return@setOnItemClickListener
+            val mode = SubtitleDisplay.entries.getOrNull(position) ?: return@setOnItemClickListener
             viewModel.setSubtitleDisplay(mode)
         }
 
@@ -138,13 +135,7 @@ class SettingsStyleFragment :
                     else -> R.id.align_bottom
                 },
             )
-            binding.groupDisplay.check(
-                when (s.subtitleDisplay) {
-                    SubtitleDisplay.Both -> R.id.display_both
-                    SubtitleDisplay.MainOnly -> R.id.display_main
-                    SubtitleDisplay.TranslatedOnly -> R.id.display_translated
-                },
-            )
+            binding.dropdownDisplay.setText(requireContext().displayLabel(s.subtitleDisplay), false)
             binding.switchOutline.isChecked = s.outline
             binding.switchOutlineTr.isChecked = s.outlineTranslated
             binding.switchBackground.isChecked = s.background
