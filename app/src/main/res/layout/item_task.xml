@@ -6,7 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:padding="12dp"
-    android:background="?attr/selectableItemBackground">
+    android:background="@drawable/bg_task_item">
 
     <ImageView
         android:id="@+id/thumbnail"
@@ -18,6 +18,18 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         tools:src="@android:drawable/ic_menu_gallery" />
+
+    <ImageView
+        android:id="@+id/checkmark"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:visibility="gone"
+        android:contentDescription="@null"
+        android:src="@android:drawable/checkbox_on_background"
+        app:tint="?attr/colorPrimary"
+        app:layout_constraintTop_toTopOf="@id/thumbnail"
+        app:layout_constraintEnd_toEndOf="@id/thumbnail"
+        tools:visibility="visible" />
 
     <TextView
         android:id="@+id/title"

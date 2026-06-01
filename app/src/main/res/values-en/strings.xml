@@ -67,6 +67,13 @@
 
     <!-- Home toolbar -->
     <string name="action_settings">Settings</string>
+    <string name="home_selection_title">%1$d selected</string>
+    <string name="home_select_all">Select all</string>
+    <string name="home_delete">Delete</string>
+    <string name="home_delete_confirm_title">Delete selected tasks?</string>
+    <string name="home_delete_confirm_message">%1$d task(s) and their cache (audio, subtitle drafts, temp videos) will be removed. Videos already exported to the gallery are unaffected.</string>
+    <string name="home_delete_confirm_ok">Delete</string>
+    <string name="home_delete_cancel">Cancel</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
