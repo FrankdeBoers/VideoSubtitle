@@ -22,12 +22,21 @@ class TaskListAdapter(
 
     private var selectionMode: Boolean = false
     private var selectedIds: Set<String> = emptySet()
+    private var nowMs: Long = System.currentTimeMillis()
 
     fun setSelection(selectionMode: Boolean, selectedIds: Set<String>) {
         val changed = this.selectionMode != selectionMode || this.selectedIds != selectedIds
         this.selectionMode = selectionMode
         this.selectedIds = selectedIds
         if (changed) notifyItemRangeChanged(0, itemCount, PAYLOAD_SELECTION)
+    }
+
+    fun tick(now: Long) {
+        nowMs = now
+        if (itemCount == 0) return
+        if (currentList.any { it.stage.isActive() }) {
+            notifyItemRangeChanged(0, itemCount, PAYLOAD_TICK)
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -40,10 +49,11 @@ class TaskListAdapter(
     }
 
     override fun onBindViewHolder(holder: VH, position: Int, payloads: MutableList<Any>) {
-        if (payloads.contains(PAYLOAD_SELECTION)) {
-            holder.bindSelection(getItem(position))
-        } else {
-            super.onBindViewHolder(holder, position, payloads)
+        when {
+            payloads.isEmpty() -> super.onBindViewHolder(holder, position, payloads)
+            payloads.contains(PAYLOAD_SELECTION) -> holder.bindSelection(getItem(position))
+            payloads.contains(PAYLOAD_TICK) -> holder.bindCostTime(getItem(position))
+            else -> super.onBindViewHolder(holder, position, payloads)
         }
     }
 
@@ -53,6 +63,7 @@ class TaskListAdapter(
             binding.title.text = task.video.displayName
             binding.duration.text = formatDuration(ctx, task.video.durationMs)
             binding.stage.text = formatStage(ctx, task.stage)
+            bindCostTime(task)
             val thumb = task.video.thumbnailPath?.let(::File)
             if (thumb != null && thumb.exists()) {
                 binding.thumbnail.load(thumb) { crossfade(true) }
@@ -73,6 +84,24 @@ class TaskListAdapter(
             val selected = task.id in selectedIds
             binding.root.isActivated = selected
             binding.checkmark.isVisible = selectionMode && selected
+        }
+
+        fun bindCostTime(task: TaskState) {
+            val ctx = binding.root.context
+            val start = task.processingStartedAt
+            val elapsed = when {
+                start == null -> 0L
+                task.stage.isActive() -> (nowMs - start).coerceAtLeast(0L)
+                else -> (task.updatedAt - start).coerceAtLeast(0L)
+            }
+            val showCost = start != null && task.stage !is TaskStage.Idle && elapsed >= 1_000L
+            binding.costTime.isVisible = showCost
+            if (showCost) {
+                binding.costTime.text = ctx.getString(
+                    R.string.task_cost_time,
+                    formatDuration(ctx, elapsed),
+                )
+            }
         }
     }
 
@@ -99,9 +128,15 @@ class TaskListAdapter(
 
     companion object {
         private const val PAYLOAD_SELECTION = "selection"
+        private const val PAYLOAD_TICK = "tick"
         private val DIFF = object : DiffUtil.ItemCallback<TaskState>() {
             override fun areItemsTheSame(oldItem: TaskState, newItem: TaskState) = oldItem.id == newItem.id
             override fun areContentsTheSame(oldItem: TaskState, newItem: TaskState) = oldItem == newItem
         }
+
+        private fun TaskStage.isActive(): Boolean = this is TaskStage.Extracting ||
+            this is TaskStage.Transcribing ||
+            this is TaskStage.Translating ||
+            this is TaskStage.Burning
     }
 }

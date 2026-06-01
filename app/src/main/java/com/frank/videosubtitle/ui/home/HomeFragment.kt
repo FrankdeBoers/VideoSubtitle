@@ -17,6 +17,7 @@ import com.frank.videosubtitle.R
 import com.frank.videosubtitle.databinding.FragmentHomeBinding
 import com.frank.videosubtitle.ui.common.BaseFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import timber.log.Timber
@@ -75,6 +76,15 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>(FragmentHomeBinding::infl
                         Toast.makeText(requireContext(), getString(R.string.import_failed, it), Toast.LENGTH_LONG).show()
                         viewModel.consumeError()
                     }
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    adapter.tick(System.currentTimeMillis())
+                    delay(1_000L)
                 }
             }
         }

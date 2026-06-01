@@ -6,4 +6,5 @@ data class TaskState(
     val stage: TaskStage,
     val createdAt: Long,
     val updatedAt: Long,
+    val processingStartedAt: Long? = null,
 )

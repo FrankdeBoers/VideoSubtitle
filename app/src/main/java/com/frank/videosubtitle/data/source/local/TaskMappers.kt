@@ -45,6 +45,7 @@ fun TaskState.toEntity(): TaskEntity {
         stageMessage = message,
         createdAt = createdAt,
         updatedAt = updatedAt,
+        processingStartedAt = processingStartedAt,
     )
 }
 
@@ -80,5 +81,6 @@ fun TaskEntity.toState(): TaskState {
         stage = stage,
         createdAt = createdAt,
         updatedAt = updatedAt,
+        processingStartedAt = processingStartedAt,
     )
 }

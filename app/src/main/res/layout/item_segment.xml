@@ -32,8 +32,21 @@
         app:layout_constraintTop_toTopOf="@id/index"
         app:layout_constraintBottom_toBottomOf="@id/index"
         app:layout_constraintStart_toEndOf="@id/index"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/cost_time"
         tools:text="00:00:01,234 → 00:00:02,500" />
+
+    <TextView
+        android:id="@+id/cost_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:textAppearance="?attr/textAppearanceLabelMedium"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:paddingVertical="2dp"
+        app:layout_constraintTop_toTopOf="@id/index"
+        app:layout_constraintBottom_toBottomOf="@id/index"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="时长 1.266" />
 
     <TextView
         android:id="@+id/text"

@@ -40,6 +40,20 @@ class SegmentAdapter(
         holder.binding.timeRange.text =
             "${SrtSerializer.formatTimestamp(seg.startMs)} → ${SrtSerializer.formatTimestamp(seg.endMs)}"
         holder.binding.text.text = seg.text
+        holder.binding.costTime.text = ctx.getString(
+            R.string.segment_duration,
+            formatSegmentDuration(ctx, (seg.endMs - seg.startMs).coerceAtLeast(0L)),
+        )
+    }
+
+    private fun formatSegmentDuration(ctx: android.content.Context, ms: Long): String {
+        val totalSec = ms / 1000
+        val millis = (ms % 1000).toInt()
+        val h = totalSec / 3600
+        val m = (totalSec % 3600) / 60
+        val s = (totalSec % 60).toInt()
+        return if (h > 0) ctx.getString(R.string.duration_hms, h, m, s)
+        else ctx.getString(R.string.duration_ms_millis, m, s, millis)
     }
 
     companion object {

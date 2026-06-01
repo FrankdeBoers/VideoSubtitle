@@ -23,4 +23,5 @@ data class TaskEntity(
     val stageMessage: String?,
     val createdAt: Long,
     val updatedAt: Long,
+    val processingStartedAt: Long? = null,
 )

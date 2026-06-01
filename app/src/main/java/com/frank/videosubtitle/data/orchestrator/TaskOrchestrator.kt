@@ -89,6 +89,9 @@ class TaskOrchestrator(
                 val audioFile = File(taskDir, "audio.wav")
                 val srtFile = File(taskDir, "subtitle.srt")
 
+                taskRepository.find(taskId)?.let { fresh ->
+                    taskRepository.update(fresh.copy(processingStartedAt = System.currentTimeMillis()))
+                }
                 if (!runExtraction(taskId, source, audioFile, task.video.durationMs)) return@launch
 
                 val modelFile = modelRepository.fileFor(model)
@@ -143,6 +146,7 @@ class TaskOrchestrator(
                     return@launch
                 }
                 val options = settings.toBurnOptions()
+                taskRepository.update(task.copy(processingStartedAt = System.currentTimeMillis()))
                 runBurn(taskId, source, srtFile, taskDir, task.video.displayName, task.video.durationMs, options)
             } finally {
                 jobs.remove(taskId)
