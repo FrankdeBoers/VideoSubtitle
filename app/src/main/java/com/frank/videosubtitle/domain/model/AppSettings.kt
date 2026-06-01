@@ -2,6 +2,7 @@ package com.frank.videosubtitle.domain.model
 
 import com.frank.videosubtitle.domain.engine.BurnMode
 import com.frank.videosubtitle.domain.engine.SubtitleAlignment
+import com.frank.videosubtitle.domain.engine.SubtitleDisplay
 
 /**
  * Persisted user preferences. Lives behind [SettingsRepository]; readers should
@@ -25,6 +26,7 @@ data class AppSettings(
     val marginH: Int = 0,
     val background: Boolean = false,
     val backgroundOpacity: Int = DEFAULT_BG_OPACITY,
+    val subtitleDisplay: SubtitleDisplay = SubtitleDisplay.Both,
     val translateToChinese: Boolean = true,
     val translationProvider: TranslationProvider = TranslationProvider.MlKit,
 ) {

@@ -278,6 +278,7 @@ class TaskOrchestrator(
             marginH = marginH,
             background = background,
             backgroundAlpha = bgAlpha,
+            displayMode = subtitleDisplay,
         )
     }
 

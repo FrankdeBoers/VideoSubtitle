@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.frank.videosubtitle.domain.engine.BurnMode
 import com.frank.videosubtitle.domain.engine.SubtitleAlignment
+import com.frank.videosubtitle.domain.engine.SubtitleDisplay
 import com.frank.videosubtitle.domain.model.AppSettings
 import com.frank.videosubtitle.domain.model.LanguagePref
 import com.frank.videosubtitle.domain.model.SubtitleColor
@@ -62,6 +63,9 @@ class SettingsDataStore(context: Context) {
     suspend fun setBackgroundOpacity(value: Int) = store.edit {
         it[KEY_BG_OPACITY] = value.coerceIn(AppSettings.MIN_BG_OPACITY, AppSettings.MAX_BG_OPACITY)
     }
+    suspend fun setSubtitleDisplay(display: SubtitleDisplay) = store.edit {
+        it[KEY_SUBTITLE_DISPLAY] = display.name
+    }
     suspend fun setTranslateToChinese(enabled: Boolean) = store.edit {
         it[KEY_TRANSLATE_ZH] = enabled
     }
@@ -90,6 +94,7 @@ class SettingsDataStore(context: Context) {
         background = this[KEY_BACKGROUND] ?: false,
         backgroundOpacity = (this[KEY_BG_OPACITY] ?: AppSettings.DEFAULT_BG_OPACITY)
             .coerceIn(AppSettings.MIN_BG_OPACITY, AppSettings.MAX_BG_OPACITY),
+        subtitleDisplay = readEnum(KEY_SUBTITLE_DISPLAY, SubtitleDisplay.Both),
         translateToChinese = this[KEY_TRANSLATE_ZH] ?: true,
         translationProvider = readEnum(KEY_TRANSLATION_PROVIDER, TranslationProvider.MlKit),
     )
@@ -118,6 +123,7 @@ class SettingsDataStore(context: Context) {
         private val KEY_MARGIN_H = intPreferencesKey("margin_h")
         private val KEY_BACKGROUND = booleanPreferencesKey("background")
         private val KEY_BG_OPACITY = intPreferencesKey("background_opacity")
+        private val KEY_SUBTITLE_DISPLAY = stringPreferencesKey("subtitle_display")
         private val KEY_TRANSLATE_ZH = booleanPreferencesKey("translate_to_chinese")
         private val KEY_TRANSLATION_PROVIDER = stringPreferencesKey("translation_provider")
     }

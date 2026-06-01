@@ -3,6 +3,7 @@ package com.frank.videosubtitle.data.repository
 import com.frank.videosubtitle.data.source.local.SettingsDataStore
 import com.frank.videosubtitle.domain.engine.BurnMode
 import com.frank.videosubtitle.domain.engine.SubtitleAlignment
+import com.frank.videosubtitle.domain.engine.SubtitleDisplay
 import com.frank.videosubtitle.domain.model.AppSettings
 import com.frank.videosubtitle.domain.model.LanguagePref
 import com.frank.videosubtitle.domain.model.SubtitleColor
@@ -30,6 +31,7 @@ interface SettingsRepository {
     suspend fun setMarginH(value: Int)
     suspend fun setBackground(enabled: Boolean)
     suspend fun setBackgroundOpacity(value: Int)
+    suspend fun setSubtitleDisplay(display: SubtitleDisplay)
     suspend fun setTranslateToChinese(enabled: Boolean)
     suspend fun setTranslationProvider(provider: TranslationProvider)
 }
@@ -86,6 +88,9 @@ class DefaultSettingsRepository(
     }
     override suspend fun setBackgroundOpacity(value: Int) {
         dataStore.setBackgroundOpacity(value)
+    }
+    override suspend fun setSubtitleDisplay(display: SubtitleDisplay) {
+        dataStore.setSubtitleDisplay(display)
     }
     override suspend fun setTranslateToChinese(enabled: Boolean) {
         dataStore.setTranslateToChinese(enabled)

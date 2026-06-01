@@ -18,6 +18,12 @@ enum class SubtitleAlignment(val assValue: Int) {
     MiddleCenter(5),
 }
 
+/**
+ * Which lines of a bilingual cue (original / translated) should be rendered.
+ * Applied at burn time by filtering the SRT before handing it to libass.
+ */
+enum class SubtitleDisplay { Both, MainOnly, TranslatedOnly }
+
 data class BurnOptions(
     val mode: BurnMode = BurnMode.HARD,
     val crf: Int = 23,
@@ -38,6 +44,8 @@ data class BurnOptions(
     val background: Boolean = false,
     /** 0..255 — alpha for the background box (0=transparent, 255=opaque). */
     val backgroundAlpha: Int = 128,
+    /** Which body line(s) to keep when burning bilingual cues. */
+    val displayMode: SubtitleDisplay = SubtitleDisplay.Both,
 )
 
 interface FFmpegEngine {

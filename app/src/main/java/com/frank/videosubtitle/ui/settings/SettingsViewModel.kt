@@ -14,6 +14,7 @@ import com.frank.videosubtitle.data.source.local.TranslationCredentialsStore
 import com.frank.videosubtitle.data.source.local.YoudaoCreds
 import com.frank.videosubtitle.domain.engine.BurnMode
 import com.frank.videosubtitle.domain.engine.SubtitleAlignment
+import com.frank.videosubtitle.domain.engine.SubtitleDisplay
 import com.frank.videosubtitle.domain.model.AppSettings
 import com.frank.videosubtitle.domain.model.LanguagePref
 import com.frank.videosubtitle.domain.model.SubtitleColor
@@ -81,6 +82,8 @@ class SettingsViewModel(
     fun setMarginH(value: Int) = viewModelScope.launch { settings.setMarginH(value) }
     fun setBackground(enabled: Boolean) = viewModelScope.launch { settings.setBackground(enabled) }
     fun setBackgroundOpacity(value: Int) = viewModelScope.launch { settings.setBackgroundOpacity(value) }
+    fun setSubtitleDisplay(display: SubtitleDisplay) =
+        viewModelScope.launch { settings.setSubtitleDisplay(display) }
     fun setTranslateToChinese(enabled: Boolean) = viewModelScope.launch { settings.setTranslateToChinese(enabled) }
     fun setTranslationProvider(provider: TranslationProvider) =
         viewModelScope.launch { settings.setTranslationProvider(provider) }

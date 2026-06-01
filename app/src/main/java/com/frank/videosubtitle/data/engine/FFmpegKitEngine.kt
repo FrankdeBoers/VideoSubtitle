@@ -12,6 +12,7 @@ import com.frank.videosubtitle.domain.engine.BurnOptions
 import com.frank.videosubtitle.domain.engine.FFmpegEngine
 import com.frank.videosubtitle.domain.engine.FfmpegException
 import com.frank.videosubtitle.domain.engine.FfmpegProgress
+import com.frank.videosubtitle.domain.engine.SubtitleDisplay
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -68,7 +69,9 @@ class FFmpegKitEngine : FFmpegEngine {
         // cue (libass parses `{\...}` tags inside SRT text). The on-disk
         // subtitle.srt is left untouched — editor opens the original.
         val safeSrt = File(output.parentFile ?: srt.parentFile, "subs.srt")
-        if (options.mode == BurnMode.HARD && hasTranslatedOverrides(options)) {
+        val needsTransform = options.displayMode != SubtitleDisplay.Both ||
+            (options.mode == BurnMode.HARD && hasTranslatedOverrides(options))
+        if (needsTransform) {
             writeStyledBilingualSrt(srt, safeSrt, options)
         } else if (safeSrt.absolutePath != srt.absolutePath) {
             srt.copyTo(safeSrt, overwrite = true)
@@ -161,41 +164,59 @@ class FFmpegKitEngine : FFmpegEngine {
 
     /**
      * Read [src] (a SubRip file produced by the translation step, where each
-     * cue text is "original\ntranslated") and write [dst] with ASS inline
-     * override tags prepended to the translated line. libass honors `{\...}`
-     * tags inside SRT cues, so this lets us style the two lines independently
-     * without converting on-disk artifacts to .ass.
+     * cue text is "original\ntranslated") and write [dst] with two
+     * transformations applied:
+     *  1. Body lines are filtered by [BurnOptions.displayMode] — drop the
+     *     translated line for [SubtitleDisplay.MainOnly], drop the original
+     *     for [SubtitleDisplay.TranslatedOnly], keep both for [SubtitleDisplay.Both].
+     *  2. When the user has set distinct translated styling, ASS inline
+     *     override tags (`{\fs..\c..&\bord..}`) are prepended to translated
+     *     body lines. libass honors these tags inside SRT cues.
+     *
+     * The on-disk subtitle.srt is never mutated — the editor still opens the
+     * full bilingual original.
      */
     private fun writeStyledBilingualSrt(src: File, dst: File, o: BurnOptions) {
-        val translatedTag = buildString {
+        val applyTranslatedTag = o.mode == BurnMode.HARD && hasTranslatedOverrides(o)
+        val translatedTag = if (applyTranslatedTag) buildString {
             append('{')
             o.fontSizeTranslated?.let { append("\\fs").append(it) }
             o.fontColorTranslatedArgb?.let { append("\\c").append(argbToAssBgr(it)) }
             o.outlineWidthTranslated?.let { append("\\bord").append(it) }
             append('}')
-        }
+        } else ""
         val text = src.readText()
-        // SRT cues are separated by blank lines. For each cue, the body is
-        // everything after the timing line. Inject the override tag at the
-        // start of every line after the first body line.
         val rebuilt = StringBuilder(text.length + 64)
         val cues = text.split(Regex("\\r?\\n\\r?\\n"))
         cues.forEachIndexed { idx, cue ->
             val trimmed = cue.trim('\r', '\n')
             if (trimmed.isEmpty()) return@forEachIndexed
             val lines = trimmed.split(Regex("\\r?\\n"))
-            // Find the timing line ("00:00:01,000 --> 00:00:02,000"). Header
-            // lines (sequence number) precede it; body lines follow.
             val timingIdx = lines.indexOfFirst { it.contains("-->") }
             if (timingIdx < 0) {
                 rebuilt.append(trimmed)
             } else {
                 lines.subList(0, timingIdx + 1).forEach { rebuilt.append(it).append('\n') }
-                lines.subList(timingIdx + 1, lines.size).forEachIndexed { bodyIdx, line ->
-                    if (bodyIdx == 0) {
-                        rebuilt.append(line).append('\n')
-                    } else {
-                        rebuilt.append(translatedTag).append(line).append('\n')
+                val body = lines.subList(timingIdx + 1, lines.size)
+                val mainLine = body.firstOrNull().orEmpty()
+                val translatedLines = if (body.size > 1) body.subList(1, body.size) else emptyList()
+                when (o.displayMode) {
+                    SubtitleDisplay.Both -> {
+                        rebuilt.append(mainLine).append('\n')
+                        translatedLines.forEach {
+                            rebuilt.append(translatedTag).append(it).append('\n')
+                        }
+                    }
+                    SubtitleDisplay.MainOnly -> {
+                        rebuilt.append(mainLine).append('\n')
+                    }
+                    SubtitleDisplay.TranslatedOnly -> {
+                        // If there's no translated line, fall back to original
+                        // so the cue isn't dropped entirely.
+                        val emit = if (translatedLines.isEmpty()) listOf(mainLine) else translatedLines
+                        emit.forEach {
+                            rebuilt.append(translatedTag).append(it).append('\n')
+                        }
                     }
                 }
             }

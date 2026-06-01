@@ -16,6 +16,7 @@ import androidx.navigation.fragment.findNavController
 import com.frank.videosubtitle.R
 import com.frank.videosubtitle.databinding.FragmentSettingsStyleBinding
 import com.frank.videosubtitle.domain.engine.SubtitleAlignment
+import com.frank.videosubtitle.domain.engine.SubtitleDisplay
 import com.frank.videosubtitle.domain.model.AppSettings
 import com.frank.videosubtitle.domain.model.SubtitleColor
 import com.frank.videosubtitle.ui.common.BaseFragment
@@ -70,6 +71,17 @@ class SettingsStyleFragment :
                 else -> return@addOnButtonCheckedListener
             }
             viewModel.setAlignment(align)
+        }
+
+        binding.groupDisplay.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked || suppressCallbacks) return@addOnButtonCheckedListener
+            val mode = when (checkedId) {
+                R.id.display_both -> SubtitleDisplay.Both
+                R.id.display_main -> SubtitleDisplay.MainOnly
+                R.id.display_translated -> SubtitleDisplay.TranslatedOnly
+                else -> return@addOnButtonCheckedListener
+            }
+            viewModel.setSubtitleDisplay(mode)
         }
 
         binding.switchOutline.setOnCheckedChangeListener { _, checked ->
@@ -127,6 +139,13 @@ class SettingsStyleFragment :
                     else -> R.id.align_bottom
                 },
             )
+            binding.groupDisplay.check(
+                when (s.subtitleDisplay) {
+                    SubtitleDisplay.Both -> R.id.display_both
+                    SubtitleDisplay.MainOnly -> R.id.display_main
+                    SubtitleDisplay.TranslatedOnly -> R.id.display_translated
+                },
+            )
             binding.switchOutline.isChecked = s.outline
             binding.switchOutlineTr.isChecked = s.outlineTranslated
             binding.switchBackground.isChecked = s.background
@@ -159,11 +178,13 @@ class SettingsStyleFragment :
             setTextSize(TypedValue.COMPLEX_UNIT_PX, s.fontSize * scale)
             setTextColor(s.fontColor.argb)
             setShadowOutline(s.outline)
+            isVisible = s.subtitleDisplay != SubtitleDisplay.TranslatedOnly
         }
         binding.previewTranslated.apply {
             setTextSize(TypedValue.COMPLEX_UNIT_PX, s.fontSizeTranslated * scale)
             setTextColor(s.fontColorTranslated.argb)
             setShadowOutline(s.outlineTranslated)
+            isVisible = s.subtitleDisplay != SubtitleDisplay.MainOnly
         }
 
         val container = binding.previewTextContainer

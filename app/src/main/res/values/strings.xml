@@ -147,6 +147,10 @@
     <string name="settings_margin_h">水平偏移 %1$d</string>
     <string name="settings_background_enable">显示背景框</string>
     <string name="settings_background_opacity">背景不透明度 %1$d%%</string>
+    <string name="settings_style_section_display">字幕显示</string>
+    <string name="settings_display_both">同时显示</string>
+    <string name="settings_display_main">仅原文</string>
+    <string name="settings_display_translated">仅译文</string>
     <string name="settings_section_output">输出质量</string>
     <string name="settings_preset_hint">编码预设</string>
     <string name="settings_preset_ultrafast">极速 (ultrafast)</string>
