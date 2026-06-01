@@ -72,7 +72,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -131,6 +132,9 @@ dependencies {
 
     // OkHttp — Whisper model downloads with Range request resume
     implementation(libs.okhttp)
+
+    // DataStore (settings persistence)
+    implementation(libs.androidx.datastore.preferences)
 
     // Logging
     implementation(libs.timber)

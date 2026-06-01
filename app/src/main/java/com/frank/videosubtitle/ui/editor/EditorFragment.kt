@@ -77,7 +77,11 @@ class EditorFragment : BaseFragment<FragmentEditorBinding>(FragmentEditorBinding
 
     private fun render(state: EditorUiState) {
         binding.title.text = state.title
-        binding.emptyLabel.isVisible = state.loaded && state.segments.isEmpty()
+        val showEmpty = state.loaded && state.segments.isEmpty()
+        if (showEmpty) {
+            binding.emptyLabel.showEmpty(headline = getString(R.string.editor_empty))
+        }
+        binding.emptyLabel.isVisible = showEmpty
         binding.segments.isVisible = state.segments.isNotEmpty()
         adapter.submitList(state.segments)
         binding.toolbar.menu.findItem(R.id.action_restore)?.isEnabled = state.originalAvailable

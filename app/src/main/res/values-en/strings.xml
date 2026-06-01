@@ -1,0 +1,114 @@
+<resources>
+    <string name="app_name">VideoSubtitle</string>
+    <string name="home_title">Subtitle tasks</string>
+    <string name="home_empty">No tasks yet — tap the + button to import a video</string>
+    <string name="home_add_video">Add video</string>
+    <string name="import_failed">Import failed: %1$s</string>
+    <string name="task_stage_idle">Pending</string>
+    <string name="task_stage_extracting">Extracting audio %1$d%%</string>
+    <string name="task_stage_transcribing">Transcribing %1$d%%</string>
+    <string name="task_stage_editing">Editing</string>
+    <string name="task_stage_burning">Burning %1$d%%</string>
+    <string name="task_stage_done">Done</string>
+    <string name="task_stage_failed">Failed: %1$s</string>
+    <string name="duration_hms">%1$d:%2$02d:%3$02d</string>
+    <string name="duration_ms">%1$d:%2$02d</string>
+    <string name="progress_title">Progress</string>
+    <string name="progress_start_extract">Start</string>
+    <string name="progress_cancel">Cancel</string>
+    <string name="progress_audio_ready">Audio ready</string>
+    <string name="progress_subtitle_ready">Subtitles ready</string>
+    <string name="model_missing">Model %1$s needs to be downloaded (%2$s)</string>
+    <string name="model_downloading">Downloading model %1$d%% (%2$s / %3$s)</string>
+    <string name="model_ready">Model ready</string>
+    <string name="model_failed">Model download failed: %1$s</string>
+    <string name="model_download">Download model</string>
+
+    <!-- Editor -->
+    <string name="editor_title">Edit subtitles</string>
+    <string name="editor_save">Save</string>
+    <string name="editor_restore">Restore original</string>
+    <string name="editor_restore_unavailable">No original to restore</string>
+    <string name="editor_segment_index">#%1$d</string>
+    <string name="editor_dialog_text_title">Edit text</string>
+    <string name="editor_dialog_time_title">Edit timing</string>
+    <string name="editor_dialog_time_start">Start (HH:MM:SS,mmm)</string>
+    <string name="editor_dialog_time_end">End (HH:MM:SS,mmm)</string>
+    <string name="editor_dialog_ok">OK</string>
+    <string name="editor_dialog_cancel">Cancel</string>
+    <string name="editor_validation_time_range">Start must be before end</string>
+    <string name="editor_validation_time_overlap">Conflicts with adjacent segment</string>
+    <string name="editor_validation_time_format">Invalid time format</string>
+    <string name="editor_save_success">Saved</string>
+    <string name="editor_save_failure">Save failed: %1$s</string>
+    <string name="editor_restore_success">Restored</string>
+    <string name="editor_unsaved_title">Discard changes?</string>
+    <string name="editor_unsaved_message">You have unsaved changes. Save them?</string>
+    <string name="editor_unsaved_save">Save</string>
+    <string name="editor_unsaved_discard">Discard</string>
+    <string name="editor_unsaved_keep_editing">Keep editing</string>
+    <string name="editor_empty">Subtitle file is empty or missing</string>
+    <string name="editor_export">Export video</string>
+    <string name="editor_export_save_first">Changes auto-saved</string>
+    <string name="progress_burn_done">Subtitles burned in</string>
+    <string name="progress_open_in_player">Open in player</string>
+    <string name="progress_burn_failed_open">No player available</string>
+
+    <!-- Service / notifications -->
+    <string name="notif_channel_pipeline">Subtitle pipeline</string>
+    <string name="notif_channel_pipeline_desc">Extraction / transcription / burn-in progress</string>
+    <string name="notif_pipeline_title">VideoSubtitle is processing</string>
+    <string name="notif_pipeline_idle">Processing</string>
+    <string name="notif_action_cancel">Cancel</string>
+
+    <!-- Errors -->
+    <string name="error_insufficient_storage">Not enough storage — at least %1$s free space required</string>
+    <string name="error_recovery_killed">App was interrupted. Please retry.</string>
+
+    <!-- Home toolbar -->
+    <string name="action_settings">Settings</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_model">Speech model</string>
+    <string name="settings_model_tiny">Tiny · 75 MB · Fastest</string>
+    <string name="settings_model_base">Base · 142 MB · Default</string>
+    <string name="settings_model_small">Small · 466 MB · Best quality</string>
+    <string name="settings_section_language">Language</string>
+    <string name="settings_language_hint">Language</string>
+    <string name="settings_lang_auto">Auto-detect</string>
+    <string name="settings_lang_zh">Chinese (Mandarin)</string>
+    <string name="settings_lang_en">English</string>
+    <string name="settings_lang_ja">Japanese</string>
+    <string name="settings_lang_ko">Korean</string>
+    <string name="settings_section_style">Subtitle style</string>
+    <string name="settings_font_size">Font size %1$d sp</string>
+    <string name="settings_font_color">Color</string>
+    <string name="settings_color_white">White</string>
+    <string name="settings_color_yellow">Yellow</string>
+    <string name="settings_color_green">Green</string>
+    <string name="settings_alignment">Position</string>
+    <string name="settings_align_bottom">Bottom</string>
+    <string name="settings_align_top">Top</string>
+    <string name="settings_outline">Show outline</string>
+    <string name="settings_section_output">Output quality</string>
+    <string name="settings_preset_hint">Encoding preset</string>
+    <string name="settings_preset_ultrafast">Ultrafast</string>
+    <string name="settings_preset_fast">Fast</string>
+    <string name="settings_preset_medium">Medium (balanced)</string>
+    <string name="settings_preset_slow">Slow (high quality)</string>
+    <string name="settings_soft_subtitles">Prefer soft subtitles (mp4 output)</string>
+    <string name="settings_soft_subtitles_hint">Soft subtitles preserve the original video and overlay at playback. Player must support mov_text.</string>
+    <string name="settings_section_cache">Cache</string>
+    <string name="settings_clear_cache">Clear task cache</string>
+    <string name="settings_clear_cache_hint">Removes intermediate files (audio, subtitle drafts, temp videos). Downloaded models are kept.</string>
+    <string name="settings_clear_cache_confirm_title">Clear cache?</string>
+    <string name="settings_clear_cache_confirm_message">All intermediate task files will be deleted. Videos already exported to the gallery are unaffected.</string>
+    <string name="settings_clear_cache_confirm_ok">Clear</string>
+    <string name="settings_clear_cache_running">A task is still running — cancel or wait first</string>
+    <string name="settings_clear_cache_done">Cleared</string>
+
+    <!-- Retry / state view -->
+    <string name="action_retry">Retry</string>
+    <string name="state_failed_headline">Processing failed</string>
+</resources>

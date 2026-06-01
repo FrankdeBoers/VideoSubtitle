@@ -71,6 +71,19 @@ class ProgressFragment : BaseFragment<FragmentProgressBinding>(FragmentProgressB
         binding.btnCancel.isEnabled = state.canCancel
         binding.btnOpenPlayer.isVisible = task.stage is TaskStage.Done
 
+        val failed = task.stage as? TaskStage.Failed
+        if (failed != null) {
+            binding.stateView.isVisible = true
+            binding.stateView.showError(
+                headline = getString(R.string.state_failed_headline),
+                body = failed.reason,
+                actionLabel = getString(R.string.action_retry),
+                onAction = { viewModel.retry() },
+            )
+        } else {
+            binding.stateView.isVisible = false
+        }
+
         renderModel(state.model)
     }
 

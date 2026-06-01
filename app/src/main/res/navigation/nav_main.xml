@@ -13,7 +13,16 @@
         <action
             android:id="@+id/action_home_to_progress"
             app:destination="@id/progressFragment" />
+        <action
+            android:id="@+id/action_home_to_settings"
+            app:destination="@id/settingsFragment" />
     </fragment>
+
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.frank.videosubtitle.ui.settings.SettingsFragment"
+        android:label="@string/settings_title"
+        tools:layout="@layout/fragment_settings" />
 
     <fragment
         android:id="@+id/progressFragment"

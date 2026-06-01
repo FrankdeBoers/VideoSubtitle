@@ -5,12 +5,15 @@ import com.frank.videosubtitle.data.engine.FFmpegKitEngine
 import com.frank.videosubtitle.data.engine.WhisperJniEngine
 import com.frank.videosubtitle.data.orchestrator.TaskOrchestrator
 import com.frank.videosubtitle.data.repository.DefaultModelRepository
+import com.frank.videosubtitle.data.repository.DefaultSettingsRepository
 import com.frank.videosubtitle.data.repository.DefaultTaskRepository
 import com.frank.videosubtitle.data.repository.DefaultVideoRepository
 import com.frank.videosubtitle.data.repository.ModelRepository
+import com.frank.videosubtitle.data.repository.SettingsRepository
 import com.frank.videosubtitle.data.repository.TaskRepository
 import com.frank.videosubtitle.data.repository.VideoRepository
 import com.frank.videosubtitle.data.source.local.AppDatabase
+import com.frank.videosubtitle.data.source.local.SettingsDataStore
 import com.frank.videosubtitle.data.source.media.MediaStoreSaver
 import com.frank.videosubtitle.data.source.media.UriResolver
 import com.frank.videosubtitle.domain.engine.FFmpegEngine
@@ -37,6 +40,9 @@ val dataModule = module {
     single { DefaultVideoRepository(get(), get()) } bind VideoRepository::class
     single { DefaultModelRepository(androidContext()) } bind ModelRepository::class
 
+    single { SettingsDataStore(androidContext()) }
+    single { DefaultSettingsRepository(get()) } bind SettingsRepository::class
+
     single { FFmpegKitEngine() } bind FFmpegEngine::class
     single { WhisperJniEngine(get()) } bind WhisperEngine::class
 
@@ -57,6 +63,7 @@ val dataModule = module {
             transcribeAudio = get(),
             burnSubtitles = get(),
             mediaStoreSaver = get(),
+            settingsRepository = get(),
         )
     }
 }

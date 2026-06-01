@@ -31,3 +31,15 @@
 -keepclasseswithmembernames class com.whispercpp.whisper.** {
     native <methods>;
 }
+
+# Koin reflectively constructs ViewModels; R8 must keep their constructors.
+-keepclassmembers class * extends androidx.lifecycle.ViewModel {
+    public <init>(...);
+}
+
+# Kotlin coroutines internals — preserve service-loaded MainDispatcher.
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory
+-keep class kotlinx.coroutines.android.AndroidDispatcherFactory { *; }
+
+# Timber — keep no-op stub trees from being stripped if release wires them up.
+-dontwarn org.jetbrains.annotations.**

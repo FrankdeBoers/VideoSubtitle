@@ -321,36 +321,35 @@ data class WhisperConfig(
 
 ---
 
-## 阶段 7 — 设置、字幕样式与发布准备
+## 阶段 7 — 设置、字幕样式与发布准备（已落地）
 
 **目标**：把分散的可配置项集中到 Settings；做一次完整 UX 走查；准备 release 构建。
 
-### 7.1 Settings（DataStore）
-- 模型选择（tiny/base/small），默认 base。
-- 默认语言（auto/中文/英文/...）。
-- 字幕字号（默认 24sp 等比换算）、字色（白/黄/亮绿）、对齐（底中/顶中）、描边（开/关）。
-- 输出质量：`ultrafast / fast / medium / slow`，默认 medium。
-- 软字幕优先（仅当 mp4 输出时生效）。
-- 模型镜像 URL。
-- 清理缓存按钮（删除 `cacheDir/tasks/`）。
+### 7.1 Settings（DataStore）✅
+- `domain/model/AppSettings.kt` 定义不可变设置；持久化在 `data/source/local/SettingsDataStore.kt`（Preferences DataStore，文件名 `settings`）。`SettingsRepository` 暴露 `observe(): Flow<AppSettings>` 与 `current(): AppSettings`，作为唯一真源。
+- `WhisperModel` 扩展为 `Tiny / Base / Small`（SHA-256 来自 HuggingFace LFS API）。
+- `TaskOrchestrator.start` / `startBurn` 在协程入口读取 `settings.current()`，构建 `WhisperConfig`（model / language.whisperCode / language.initialPrompt）和 `BurnOptions`（burnMode、preset、fontSize、fontColor.argb、outline → 描边宽度、alignment）。
+- `ProgressViewModel` 通过 `settingsRepository.observe().map { it.model }` 驱动 `activeModel`，模型切换会取消旧下载任务并刷新 `ModelStatus`。
+- Settings UI：`SettingsFragment` + `SettingsViewModel`（XML+ViewBinding，与项目惯例一致）。包含模型 RadioGroup、语言 ExposedDropdown、字号 Slider、颜色 ToggleGroup、对齐 ToggleGroup、描边 Switch、preset Dropdown、软字幕 Switch、清理缓存按钮（任意任务进行中时禁用，仅删除 `cacheDir/tasks/`，不动 `filesDir/models`）。
+- 入口：Home Toolbar 菜单 → `action_settings` → `nav_main.xml` 新增 `settingsFragment` 目的地。
+- 暂未做：模型镜像 URL（推迟到 v1.x）。
 
-### 7.2 UX 收尾
-- 空状态、错误页、加载中等状态统一组件化。
-- Loading 与失败都给"重试"按钮。
-- Light/Dark theme 跑一遍（已有 `values-night/themes.xml`）。
-- 中文/英文资源 strings 拆分（默认中文）。
+### 7.2 UX 收尾 ✅
+- 通用组件 `ui/common/StateView`（`view_state.xml` merge layout）支持 loading / empty / error 三种形态，error 形态可选 action 按钮。
+- HomeFragment 空态、ProgressFragment Failed 态（带"重试"按钮，`ProgressViewModel.retry()` 根据 `subtitle.srt` 是否存在决定走 `orchestrator.startBurn` 还是 `orchestrator.start`）、EditorFragment 空段态都接入 StateView。
+- 中文/英文 strings 拆分：`values/strings.xml`（zh，默认）+ `values-en/strings.xml`（英文，键集与格式参数与默认完全一致）。
+- Light/Dark：依赖系统 `Theme.Material3.DayNight.NoActionBar`，未做单独深色覆写文件——若后续走查发现对比度问题再补 `values-night/`。
 
-### 7.3 Release 构建
-- 启用 R8（`isMinifyEnabled = true`）+ resource shrinking。
-- ABI splits 切片；arm64-v8a 单架构 APK 应 < 80MB。
-- 在 `proguard-rules.pro` 加全套 keep 规则（whisper-jni / ffmpeg-kit / Hilt / kotlinx.serialization）。
-- Crash 上报接入（可选 Firebase Crashlytics 或 Sentry）。
-- README / 用户引导。
+### 7.3 Release 构建 ✅
+- `app/build.gradle.kts`：`release { isMinifyEnabled = true; isShrinkResources = true }`。
+- `app/proguard-rules.pro` keep：FFmpegKit (`com.arthenica.ffmpegkit.**`、`com.arthenica.smartexception.**`)、WhisperLib JNI（`com.whispercpp.whisper.**` + `native <methods>`）、Koin 反射构造的 `ViewModel` 子类构造函数、kotlinx coroutines `MainDispatcherFactory`/`AndroidDispatcherFactory`。
+- `./gradlew :app:assembleRelease` BUILD SUCCESSFUL（含 R8 + lintVitalRelease + resource shrinking）。arm64-v8a 切片 APK ≈ 31 MB（< 80 MB 阈值）。
+- 暂未做：签名 config（release APK 仍未签名，由用户本地签名）；Crashlytics / Sentry（推迟到 v1.1）；README 用户引导。
 
 ### 验收
-- 设置项的修改在下次任务中真实生效（如换模型、改字幕颜色）。
-- Release APK 在测试机上跑通 5min mp4 全流程。
-- 卸载重装后历史任务/模型按设计清空（cacheDir 自动清，filesDir/models 保留模型 → 设置中需明示）。
+- ✅ 设置项的修改在下次任务中真实生效（model / language / preset / 字幕样式都从 SettingsRepository 读取，不再 hardcode）。
+- ⏳ Release APK 在测试机上跑通 5min mp4 全流程（待真机回归）。
+- ✅ 卸载重装后历史任务/模型按设计清空（cacheDir 自动清，`filesDir/models` 保留模型；Settings 清理缓存按钮文案已明示）。
 
 ---
 

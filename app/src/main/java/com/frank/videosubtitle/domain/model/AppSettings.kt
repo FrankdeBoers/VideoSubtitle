@@ -1,0 +1,61 @@
+package com.frank.videosubtitle.domain.model
+
+import com.frank.videosubtitle.domain.engine.BurnMode
+import com.frank.videosubtitle.domain.engine.SubtitleAlignment
+
+/**
+ * Persisted user preferences. Lives behind [SettingsRepository]; readers should
+ * sample at the start of a pipeline run rather than holding a long-lived
+ * reference. All fields have defaults so a fresh install has working behaviour
+ * without a first-run tour.
+ */
+data class AppSettings(
+    val model: WhisperModel = WhisperModel.Base,
+    val language: LanguagePref = LanguagePref.Auto,
+    val burnMode: BurnMode = BurnMode.HARD,
+    val preset: VideoPreset = VideoPreset.Medium,
+    val fontSize: Int = DEFAULT_FONT_SIZE,
+    val fontColor: SubtitleColor = SubtitleColor.White,
+    val outline: Boolean = true,
+    val alignment: SubtitleAlignment = SubtitleAlignment.BottomCenter,
+) {
+    companion object {
+        const val MIN_FONT_SIZE = 18
+        const val MAX_FONT_SIZE = 40
+        const val DEFAULT_FONT_SIZE = 24
+    }
+}
+
+/**
+ * Subset of whisper.cpp language codes exposed in the UI. `Auto` lets whisper
+ * detect language from the audio. Each preset carries an optional initial
+ * prompt — empirically this nudges the decoder toward the expected script
+ * (full-width Chinese punctuation for Zh, conventional capitalization for En).
+ */
+enum class LanguagePref(val whisperCode: String?, val initialPrompt: String?) {
+    Auto(whisperCode = null, initialPrompt = null),
+    ZhCn(whisperCode = "zh", initialPrompt = "以下是普通话的句子，使用全角标点。"),
+    En(whisperCode = "en", initialPrompt = null),
+    Ja(whisperCode = "ja", initialPrompt = null),
+    Ko(whisperCode = "ko", initialPrompt = null),
+}
+
+/**
+ * x264 preset trading encoding speed for compression efficiency.
+ */
+enum class VideoPreset(val ffmpegPreset: String) {
+    Ultrafast("ultrafast"),
+    Fast("fast"),
+    Medium("medium"),
+    Slow("slow"),
+}
+
+/**
+ * Restricted palette for burned subtitles — keeping it small avoids a full
+ * color picker in v1. ARGB values are passed through to [BurnOptions].
+ */
+enum class SubtitleColor(val argb: Int) {
+    White(0xFFFFFFFF.toInt()),
+    Yellow(0xFFFFFF00.toInt()),
+    LimeGreen(0xFF00FF00.toInt()),
+}

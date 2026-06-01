@@ -30,6 +30,17 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>(FragmentHomeBinding::infl
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        binding.toolbar.inflateMenu(R.menu.menu_home)
+        binding.toolbar.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.action_settings -> {
+                    findNavController().navigate(HomeFragmentDirections.actionHomeToSettings())
+                    true
+                }
+                else -> false
+            }
+        }
+
         val adapter = TaskListAdapter(onClick = { task ->
             findNavController().navigate(
                 HomeFragmentDirections.actionHomeToProgress(task.id),
@@ -42,6 +53,8 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>(FragmentHomeBinding::infl
         binding.fabAdd.setOnClickListener {
             pickVideo.launch(arrayOf("video/*"))
         }
+
+        binding.empty.showEmpty(headline = getString(R.string.home_empty))
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {

@@ -64,4 +64,51 @@
     <!-- Errors -->
     <string name="error_insufficient_storage">磁盘空间不足，至少需要 %1$s 可用空间</string>
     <string name="error_recovery_killed">应用被中断，请重试</string>
+
+    <!-- Home toolbar -->
+    <string name="action_settings">设置</string>
+
+    <!-- Settings -->
+    <string name="settings_title">设置</string>
+    <string name="settings_section_model">语音识别模型</string>
+    <string name="settings_model_tiny">Tiny · 75 MB · 速度优先</string>
+    <string name="settings_model_base">Base · 142 MB · 默认</string>
+    <string name="settings_model_small">Small · 466 MB · 质量优先</string>
+    <string name="settings_section_language">识别语言</string>
+    <string name="settings_language_hint">语言</string>
+    <string name="settings_lang_auto">自动检测</string>
+    <string name="settings_lang_zh">中文（普通话）</string>
+    <string name="settings_lang_en">英文</string>
+    <string name="settings_lang_ja">日文</string>
+    <string name="settings_lang_ko">韩文</string>
+    <string name="settings_section_style">字幕样式</string>
+    <string name="settings_font_size">字号 %1$d sp</string>
+    <string name="settings_font_color">颜色</string>
+    <string name="settings_color_white">白</string>
+    <string name="settings_color_yellow">黄</string>
+    <string name="settings_color_green">绿</string>
+    <string name="settings_alignment">位置</string>
+    <string name="settings_align_bottom">底部</string>
+    <string name="settings_align_top">顶部</string>
+    <string name="settings_outline">显示描边</string>
+    <string name="settings_section_output">输出质量</string>
+    <string name="settings_preset_hint">编码预设</string>
+    <string name="settings_preset_ultrafast">极速 (ultrafast)</string>
+    <string name="settings_preset_fast">快速 (fast)</string>
+    <string name="settings_preset_medium">均衡 (medium)</string>
+    <string name="settings_preset_slow">高质量 (slow)</string>
+    <string name="settings_soft_subtitles">优先软字幕（mp4 输出）</string>
+    <string name="settings_soft_subtitles_hint">软字幕保留原视频，播放时叠加。播放器需支持 mov_text。</string>
+    <string name="settings_section_cache">缓存</string>
+    <string name="settings_clear_cache">清理任务缓存</string>
+    <string name="settings_clear_cache_hint">删除已生成的中间文件（音频/字幕草稿/临时视频），不影响已下载模型。</string>
+    <string name="settings_clear_cache_confirm_title">确认清理？</string>
+    <string name="settings_clear_cache_confirm_message">这会删除所有任务的中间文件。已导出到相册的视频不受影响。</string>
+    <string name="settings_clear_cache_confirm_ok">清理</string>
+    <string name="settings_clear_cache_running">仍有任务正在处理，请先取消或等待完成</string>
+    <string name="settings_clear_cache_done">已清理</string>
+
+    <!-- Retry / state view -->
+    <string name="action_retry">重试</string>
+    <string name="state_failed_headline">处理失败</string>
 </resources>

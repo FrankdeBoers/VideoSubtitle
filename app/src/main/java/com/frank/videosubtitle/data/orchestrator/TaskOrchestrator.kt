@@ -3,11 +3,13 @@ package com.frank.videosubtitle.data.orchestrator
 import android.content.Context
 import android.os.StatFs
 import com.frank.videosubtitle.data.repository.ModelRepository
+import com.frank.videosubtitle.data.repository.SettingsRepository
 import com.frank.videosubtitle.data.repository.TaskRepository
 import com.frank.videosubtitle.data.source.media.MediaStoreSaver
 import com.frank.videosubtitle.domain.engine.BurnOptions
 import com.frank.videosubtitle.domain.engine.TranscribeEvent
 import com.frank.videosubtitle.domain.engine.WhisperConfig
+import com.frank.videosubtitle.domain.model.AppSettings
 import com.frank.videosubtitle.domain.model.TaskStage
 import com.frank.videosubtitle.domain.model.WhisperModel
 import com.frank.videosubtitle.domain.usecase.BurnSubtitlesUseCase
@@ -41,11 +43,16 @@ class TaskOrchestrator(
     private val transcribeAudio: TranscribeAudioUseCase,
     private val burnSubtitles: BurnSubtitlesUseCase,
     private val mediaStoreSaver: MediaStoreSaver,
+    private val settingsRepository: SettingsRepository,
 ) {
 
     private val jobs = ConcurrentHashMap<String, Job>()
 
-    fun start(taskId: String, model: WhisperModel = WhisperModel.Base) {
+    private companion object {
+        const val DEFAULT_OUTLINE_WIDTH = 2
+    }
+
+    fun start(taskId: String) {
         if (jobs[taskId]?.isActive == true) {
             Timber.d("Pipeline already running for %s", taskId)
             return
@@ -53,6 +60,8 @@ class TaskOrchestrator(
         VideoProcessingService.start(context)
         jobs[taskId] = appScope.launch(dispatchers.io) {
             try {
+                val settings = settingsRepository.current()
+                val model = settings.model
                 val task = taskRepository.find(taskId) ?: run {
                     Timber.w("start: task %s not found", taskId); return@launch
                 }
@@ -76,14 +85,14 @@ class TaskOrchestrator(
                     return@launch
                 }
 
-                runTranscription(taskId, audioFile, srtFile, model, modelFile)
+                runTranscription(taskId, audioFile, srtFile, model, modelFile, settings)
             } finally {
                 jobs.remove(taskId)
             }
         }
     }
 
-    fun startBurn(taskId: String, options: BurnOptions = BurnOptions()) {
+    fun startBurn(taskId: String) {
         if (jobs[taskId]?.isActive == true) {
             Timber.d("Pipeline already running for %s", taskId)
             return
@@ -91,6 +100,7 @@ class TaskOrchestrator(
         VideoProcessingService.start(context)
         jobs[taskId] = appScope.launch(dispatchers.io) {
             try {
+                val settings = settingsRepository.current()
                 val task = taskRepository.find(taskId) ?: return@launch
                 val source = File(task.video.cachedPath)
                 val taskDir = source.parentFile ?: error("Task source has no parent dir")
@@ -99,6 +109,7 @@ class TaskOrchestrator(
                     taskRepository.update(task.copy(stage = TaskStage.Failed("Subtitle file missing")))
                     return@launch
                 }
+                val options = settings.toBurnOptions()
                 runBurn(taskId, source, srtFile, taskDir, task.video.displayName, task.video.durationMs, options)
             } finally {
                 jobs.remove(taskId)
@@ -211,6 +222,15 @@ class TaskOrchestrator(
 
     private fun uniqueDisplayName(name: String): String = name
 
+    private fun AppSettings.toBurnOptions(): BurnOptions = BurnOptions(
+        mode = burnMode,
+        preset = preset.ffmpegPreset,
+        fontSize = fontSize,
+        fontColorArgb = fontColor.argb,
+        outlineWidth = if (outline) DEFAULT_OUTLINE_WIDTH else 0,
+        alignment = alignment,
+    )
+
     private fun hasEnoughSpace(dir: File?, neededBytes: Long): Boolean {
         val target = dir ?: return true
         return runCatching {
@@ -225,6 +245,7 @@ class TaskOrchestrator(
         srtOutput: File,
         model: WhisperModel,
         modelFile: File,
+        settings: AppSettings,
     ) {
         val current = taskRepository.find(taskId) ?: return
         taskRepository.update(current.copy(stage = TaskStage.Transcribing(0)))
@@ -232,10 +253,9 @@ class TaskOrchestrator(
         val config = WhisperConfig(
             model = model,
             modelFile = modelFile,
-            // null = let whisper auto-detect; settings UI in Phase 7 will override.
-            language = null,
+            language = settings.language.whisperCode,
             translate = false,
-            initialPrompt = null,
+            initialPrompt = settings.language.initialPrompt,
             nThreads = 4,
         )
 
