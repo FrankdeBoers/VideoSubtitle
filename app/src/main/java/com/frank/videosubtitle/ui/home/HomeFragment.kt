@@ -85,7 +85,7 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>(FragmentHomeBinding::infl
         toolbar.menu.clear()
         if (selectionMode) {
             toolbar.title = getString(R.string.home_selection_title, selectedCount)
-            toolbar.setNavigationIcon(android.R.drawable.ic_menu_close_clear_cancel)
+            toolbar.setNavigationIcon(R.drawable.close)
             toolbar.setNavigationOnClickListener { viewModel.clearSelection() }
             toolbar.inflateMenu(R.menu.menu_home_selection)
             toolbar.setOnMenuItemClickListener { item ->

@@ -3,17 +3,18 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
         android:id="@+id/action_start"
-        android:icon="@android:drawable/ic_media_play"
+        android:icon="@drawable/play"
         android:title="@string/home_start"
         app:showAsAction="ifRoom" />
     <item
         android:id="@+id/action_select_all"
-        android:icon="@android:drawable/ic_menu_agenda"
+        android:icon="@drawable/select_all"
         android:title="@string/home_select_all"
         app:showAsAction="ifRoom" />
     <item
         android:id="@+id/action_delete"
-        android:icon="@android:drawable/ic_menu_delete"
+        android:icon="@drawable/delete"
         android:title="@string/home_delete"
+        app:tint="@color/black"
         app:showAsAction="ifRoom" />
 </menu>
