@@ -22,6 +22,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -47,6 +49,14 @@ class TaskOrchestrator(
 ) {
 
     private val jobs = ConcurrentHashMap<String, Job>()
+
+    // Whisper inference is CPU-bound and uses ~4 internal threads per call;
+    // each open context also keeps a full copy of the model (75–466 MB) in
+    // RAM. Running it concurrently across tasks oversubscribes the CPU,
+    // triggers thermal throttling, and risks LMK on phones — net wall-clock
+    // is worse than back-to-back. Extract/burn still run in parallel; only
+    // the transcribe stage queues on this gate.
+    private val transcriptionGate = Mutex()
 
     private companion object {
         const val DEFAULT_OUTLINE_WIDTH = 2
@@ -276,27 +286,29 @@ class TaskOrchestrator(
             nThreads = 4,
         )
 
-        transcribeAudio(wav, srtOutput, config)
-            .catch { t ->
-                Timber.e(t, "transcribeAudio failed for %s", taskId)
-                val now = taskRepository.find(taskId) ?: current
-                if (now.stage !is TaskStage.Failed) {
-                    taskRepository.update(now.copy(stage = TaskStage.Failed(t.message ?: t.javaClass.simpleName)))
-                }
-            }
-            .onCompletion { Timber.d("transcribe pipeline completed for %s", taskId) }
-            .collect { event ->
-                val now = taskRepository.find(taskId) ?: return@collect
-                if (now.stage is TaskStage.Failed) return@collect
-                when (event) {
-                    is TranscribeEvent.Progress -> {
-                        taskRepository.update(now.copy(stage = TaskStage.Transcribing(event.percent)))
-                    }
-                    is TranscribeEvent.Done -> {
-                        // Phase 4 (editor) will hold this state; for now mark Editing.
-                        taskRepository.update(now.copy(stage = TaskStage.Editing))
+        transcriptionGate.withLock {
+            transcribeAudio(wav, srtOutput, config)
+                .catch { t ->
+                    Timber.e(t, "transcribeAudio failed for %s", taskId)
+                    val now = taskRepository.find(taskId) ?: current
+                    if (now.stage !is TaskStage.Failed) {
+                        taskRepository.update(now.copy(stage = TaskStage.Failed(t.message ?: t.javaClass.simpleName)))
                     }
                 }
-            }
+                .onCompletion { Timber.d("transcribe pipeline completed for %s", taskId) }
+                .collect { event ->
+                    val now = taskRepository.find(taskId) ?: return@collect
+                    if (now.stage is TaskStage.Failed) return@collect
+                    when (event) {
+                        is TranscribeEvent.Progress -> {
+                            taskRepository.update(now.copy(stage = TaskStage.Transcribing(event.percent)))
+                        }
+                        is TranscribeEvent.Done -> {
+                            // Phase 4 (editor) will hold this state; for now mark Editing.
+                            taskRepository.update(now.copy(stage = TaskStage.Editing))
+                        }
+                    }
+                }
+        }
     }
 }
