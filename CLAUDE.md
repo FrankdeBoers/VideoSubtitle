@@ -6,11 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Android application `com.frank.videosubtitle` (VideoSubtitle). Goal: pick a local video → generate subtitles on-device with Whisper → burn subtitles back into the video with FFmpeg.
 
-**Current state: end of Phase 2** — Phase 1 + audio extraction via FFmpegKit (`6.0.LTS`, sourced from Aliyun/HuaweiCloud Maven mirrors after FFmpegKit was archived from Maven Central). `TaskOrchestrator` runs the pipeline on an application-scoped coroutine and writes progress to Room. `ProgressFragment` observes per-task state. No Whisper / burn yet.
+**Current state: end of Phase 3** — Phase 1 + audio extraction via FFmpegKit (`6.0.LTS`, sourced from Aliyun/HuaweiCloud Maven mirrors after FFmpegKit was archived from Maven Central) + Whisper transcription via vendored `whisper.cpp` v1.7.5 built as `libwhisper.so` (NDK 26.3.11579264 / CMake 3.22.1, arm64-v8a + armeabi-v7a). `TaskOrchestrator.start(taskId, model)` chains extract → transcribe; `ProgressFragment` shows model-status (download/ready) plus per-stage progress. SRT serialization at `data/source/local/SrtSerializer`, model download at `DefaultModelRepository` (OkHttp Range + SHA-256). Editor / burn still pending (Phase 4 / 5).
 
 ## Authoritative design docs (read these first)
 
-- [`docs/SDD.md`](./docs/SDD.md) — Spec/Design Document. Layered MVVM architecture, tech stack decisions (XML+ViewBinding, FFmpegKit, whisper-jni), end-to-end pipeline, data model, risks. **All non-trivial work should align with this doc; if you intentionally diverge, update SDD in the same change.**
+- [`docs/SDD.md`](./docs/SDD.md) — Spec/Design Document. Layered MVVM architecture, tech stack decisions (XML+ViewBinding, FFmpegKit, vendored whisper.cpp), end-to-end pipeline, data model, risks. **All non-trivial work should align with this doc; if you intentionally diverge, update SDD in the same change.**
 - [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) — Phased build-out (Phase 0 scaffold → 1 picker → 2 audio → 3 Whisper → 4 editor → 5 burn → 6 background → 7 settings). Each phase has acceptance criteria; do not start a phase before its predecessor's criteria are met.
 - Reference implementation (Python desktop): `/Users/guohongcheng/code/android_project/VideoCaptioner` — its `videocaptioner/core/asr/whisper_cpp.py` and `core/utils/video_utils.py` define the FFmpeg / Whisper command shapes the Android version mirrors.
 
@@ -30,6 +30,10 @@ Android application `com.frank.videosubtitle` (VideoSubtitle). Goal: pick a loca
 - **KSP + AGP 9 source-set guardrail.** AGP 9 disallows `kotlin.sourceSets` mutations, but KSP 2.0.x still registers its `build/generated/ksp/...` outputs that way. The opt-out `android.disallowKotlinSourceSets=false` in `gradle.properties` is required until KSP2 fully migrates. When KSP releases an AGP-9-clean version, drop the flag.
 - **Room schema export** is wired through the `androidx.room` Gradle plugin (`room { schemaDirectory("$projectDir/schemas") }`). Bump `@Database(version = ...)` for any schema change and commit the generated JSON under `app/schemas/`.
 - **FFmpegKit was pulled from Maven Central in 2025.** Author archived `arthenica/ffmpeg-kit`; `6.0.LTS` POM still lists in Central's index but the AAR/POM 404 on the CDN. The Aliyun (`maven.aliyun.com/repository/public`) and HuaweiCloud (`repo.huaweicloud.com/repository/maven`) mirrors still serve the cached AAR (SHA1 `4b3fc143f29a61044bb87b9c8dd80982d7b1c35b` matches across both). They're declared in `settings.gradle.kts` with `content { includeGroup("com.arthenica") }` so they're never consulted for anything else. If both mirrors stop serving it, fallbacks: self-host AAR in `app/libs/`, or pivot to Media3 Transformer.
+- **whisper-jni doesn't ship Android binaries.** `io.github.givimad:whisper-jni:1.7.1` jar contains only desktop GLIBC `.so`/`.dylib`/`.dll` (`macos-*`, `debian-*`, `win-amd64`) — they fail to load on Android (bionic libc). Project vendors `ggerganov/whisper.cpp` v1.7.5 source under `app/src/main/cpp/whisper.cpp/` and builds via NDK + CMake. **Do not** add a `whisper-jni` dep — it'll just bloat the apk without doing anything.
+- **whisper.cpp's `ggml-cpu.cpp` includes `amx/amx.h` unconditionally.** The Intel AMX backend implementations are guarded by `__AMX_INT8__` && `__AVX512VNNI__` (so they're empty TUs on ARM), but the header include itself isn't guarded. We vendor `ggml/src/ggml-cpu/amx/` so the include resolves and link to empty `amx.cpp`/`mmq.cpp` objects. If you trim further, this is the trip-wire.
+- **Two `libc++_shared.so` in the APK.** FFmpegKit and our `libwhisper.so` both ship it; AGP picks the app build's copy and warns. Acceptable — both were built with the same NDK-shipped libc++.
+- **AGP 9 disallows `splits.abi` + `defaultConfig.ndk.abiFilters` together.** Pick one. We use `splits.abi.include` only; CMake auto-builds for whatever ABI list `splits.abi` declares.
 
 ## Build & test commands
 
@@ -48,24 +52,31 @@ Use the Gradle wrapper from the repo root:
 ## Source layout (current)
 
 ```
+app/src/main/cpp/
+├── CMakeLists.txt             Single libwhisper.so target (ggml + whisper + ggml-cpu)
+├── whisper_jni.c              JNI bridge with progress/abort extras struct
+└── whisper.cpp/               Vendored upstream v1.7.5 minimal subset (~2.7 MB)
+
+app/src/main/java/com/whispercpp/whisper/
+└── WhisperLib.kt              Kotlin facade (object, no Companion → stable JNI symbols)
+
 app/src/main/java/com/frank/videosubtitle/
 ├── VideoSubtitleApp.kt        Application + Koin startup + Timber
 ├── MainActivity.kt            Single Activity, hosts NavHostFragment, edge-to-edge
 ├── di/
 │   ├── AppModule.kt           DispatcherProvider, applicationScope (SupervisorJob+IO)
-│   ├── DataModule.kt          Room, repos, FFmpegKitEngine, ExtractAudioUseCase, TaskOrchestrator
+│   ├── DataModule.kt          Room, repos, engines (FFmpeg + Whisper), use cases, TaskOrchestrator
 │   └── UiModule.kt            ViewModels (HomeViewModel, ProgressViewModel)
 ├── domain/
-│   ├── model/                 VideoMeta, TaskStage (sealed), TaskState
-│   ├── engine/                FFmpegEngine (interface), FfmpegProgress, FfmpegException
-│   └── usecase/               ExtractAudioUseCase (idempotent on existing audio.wav)
+│   ├── model/                 VideoMeta, TaskStage, TaskState, Subtitle, WhisperModel
+│   ├── engine/                FFmpegEngine, WhisperEngine (interfaces), config + event types
+│   └── usecase/               ExtractAudioUseCase, TranscribeAudioUseCase (both idempotent)
 ├── data/
-│   ├── engine/FFmpegKitEngine wraps FFmpegKit.executeAsync via callbackFlow
-│   ├── orchestrator/          TaskOrchestrator (app-scoped pipeline driver)
-│   ├── repository/            TaskRepository, VideoRepository
+│   ├── engine/                FFmpegKitEngine, WhisperJniEngine, WavDecoder
+│   ├── orchestrator/          TaskOrchestrator (extract → transcribe → ...)
+│   ├── repository/            TaskRepository, VideoRepository, ModelRepository (OkHttp+SHA-256)
 │   └── source/
-│       ├── local/             Room: TaskEntity (flat columns), TaskDao,
-│       │                       AppDatabase, TaskMappers (StageKind: stable strings)
+│       ├── local/             Room (TaskEntity/Dao/AppDatabase/Mappers), SrtSerializer
 │       └── media/UriResolver  copyToCache + MediaMetadataRetriever probe + thumb
 ├── util/{DispatcherProvider, AppError, DomainResult}.kt
 └── ui/
@@ -73,7 +84,7 @@ app/src/main/java/com/frank/videosubtitle/
     ├── home/                  HomeFragment (FAB+SAF picker), HomeViewModel,
     │                           HomeUiState, TaskListAdapter (Coil for thumb)
     └── progress/              ProgressFragment (taskId arg), ProgressViewModel,
-                                ProgressUiState; observes TaskRepository
+                                ProgressUiState (incl. ModelStatus); observes TaskRepository
 ```
 
 `stageKind` strings (`idle/extracting/transcribing/editing/burning/done/failed`) are persisted in Room — renaming them is a schema break. `TaskMappersTest` pins them.

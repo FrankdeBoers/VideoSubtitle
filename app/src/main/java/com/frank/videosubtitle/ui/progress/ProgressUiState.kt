@@ -8,4 +8,13 @@ data class ProgressUiState(
     val running: Boolean = false,
     val canStart: Boolean = false,
     val canCancel: Boolean = false,
+    val model: ModelStatus = ModelStatus.Unknown,
 )
+
+sealed interface ModelStatus {
+    data object Unknown : ModelStatus
+    data class Missing(val modelName: String, val sizeBytes: Long) : ModelStatus
+    data class Downloading(val percent: Int, val downloaded: Long, val total: Long) : ModelStatus
+    data object Ready : ModelStatus
+    data class Failed(val reason: String) : ModelStatus
+}

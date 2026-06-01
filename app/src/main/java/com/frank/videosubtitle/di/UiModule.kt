@@ -7,5 +7,5 @@ import org.koin.dsl.module
 
 val uiModule = module {
     viewModel { HomeViewModel(get(), get()) }
-    viewModel { (taskId: String) -> ProgressViewModel(taskId, get(), get()) }
+    viewModel { (taskId: String) -> ProgressViewModel(taskId, get(), get(), get()) }
 }

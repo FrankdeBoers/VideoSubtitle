@@ -83,7 +83,7 @@
 ┌──────────────────▼───────────────────────────────────────────┐
 │ data/source                                                  │
 │   FFmpegEngine     ← FFmpegKit 封装（音频提取/合成）         │
-│   WhisperEngine    ← whisper-jni / whisper.cpp 封装          │
+│   WhisperEngine    ← libwhisper.so（vendor whisper.cpp v1.7.5）│
 │   ModelDownloader  ← OkHttp 下载 ggml 模型                   │
 │   MediaStoreSaver  ← 输出文件落地到 MediaStore.Movies        │
 └──────────────────────────────────────────────────────────────┘
@@ -142,25 +142,29 @@ com.frank.videosubtitle
 | 后台任务 | WorkManager + 前台 Service（合成耗时大） | 任务可观察、可取消、可恢复 |
 | 视频播放 | Media3 ExoPlayer（编辑预览用，可选） | v1 可先不内嵌播放器 |
 | 视频处理 | **FFmpegKit**（`com.arthenica:ffmpeg-kit-full-gpl:6.0-2.LTS.1`） | 已确认。ffmpeg-kit 上游归档，需固定版本，并在 README 注明替换备选 |
-| 语音识别 | **Whisper 第三方封装**：`io.github.givimad:whisper-jni`（首选） | 已确认。备选见 §4.1 |
+| 语音识别 | **vendoring whisper.cpp v1.7.5 + NDK 自编 `libwhisper.so`**（路线 A，2026-05 修订） | 详见 §4.1 |
 | 模型分发 | App 内下载 ggml-base.bin（默认 ~140MB），存到内部 `filesDir/models` | 不打进 APK |
 | 文件选择 | SAF：`ActivityResultContracts.OpenDocument` | 取得 persistable URI 权限 |
 | 输出落地 | MediaStore（`Movies/VideoSubtitle/`） | 兼容 scoped storage |
 | 日志 | Timber + 写入 `cacheDir/logs/yyyymmdd.log` | 便于用户提交问题 |
 | 测试 | JUnit4 + Truth + Turbine + MockK；Espresso 仅核心路径 | 已存在 `ExampleUnitTest`/`ExampleInstrumentedTest` 占位 |
 
-### 4.1 Whisper 集成路径
+### 4.1 Whisper 集成路径（2026-05 修订）
 
-**首选**：`whisper-jni`（GiviMAD），原因：
-- Maven Central 直接拉取，无须本地编 NDK；
-- 暴露 `WhisperContext` / `WhisperFullParams`，能拿到段级 + 词级时间戳；
-- 模型文件即标准 GGML（`ggml-tiny/base/small.bin`），与 VideoCaptioner 桌面版完全一致，便于复用 prompt（如中文场景的 "你好，我们需要使用简体中文..." 提示词，参考 `core/asr/whisper_cpp.py:107`）。
+**已落地**：vendoring `ggerganov/whisper.cpp` v1.7.5 最小子集到 `app/src/main/cpp/whisper.cpp/`，用 NDK 26.3.11579264 + CMake 3.22.1 通过 `externalNativeBuild` 编出 `libwhisper.so`（arm64-v8a 9.6 MB / armeabi-v7a 8.5 MB，未 strip）。Kotlin facade 在 `com.whispercpp.whisper.WhisperLib`（`object`，方法直接挂在类上以保持稳定 JNI 符号）；JNI bridge `app/src/main/cpp/whisper_jni.c` 在 whisper.cpp 自带 progress/abort callback 之上加了一个 `whisper_state_extras { volatile progress; volatile aborted }` 结构体，让 Kotlin 侧 250ms 轮询进度、取消时翻 `setAbort(true)`。
 
-**风险与备选**：
-- whisper-jni 的 Android `.so` 体积较大（armeabi-v7a/arm64-v8a 合计 ~30MB）；如需进一步瘦身，备选：
-  - **vilassn/whisper_android**：把 whisper.cpp 编成 AAR 模块，体积更可控。
-  - **Argmax WhisperKit Android**：最新方案，工程化更完整，但生态/版本较新。
-- 集成前必须验证：`arm64-v8a` 和 `armeabi-v7a` 都跑得通；Vulkan/OpenCL 加速在多数机型不可用，CPU 推理速率以 `base` 模型 / 1080P 5min 视频 ≈ 实时倍率 1× 为基线。
+**为何不再走 whisper-jni（首选方案被否）**：实测 `io.github.givimad:whisper-jni` 1.7.1 jar 的 native 包只有 `macos-arm64/`、`debian-arm64/`、`debian-armv7l/`、`debian-amd64/`、`macos-amd64/`、`win-amd64/` —— 全部是桌面 GLIBC 二进制，Android（bionic libc）加载会直接失败。这点上游 README 没明说，是用 `unzip -l` 检视 jar 之后才发现的。已抛出 issue 类反馈，但短期内不指望发布；切到自编后所有阻塞解开。
+
+**vendor 范围**（`app/src/main/cpp/whisper.cpp/`，~2.7 MB）：
+- `LICENSE`、`include/whisper.h`、`src/whisper.cpp`、`src/whisper-arch.h`
+- `ggml/include/`、`ggml/src/{ggml.c, ggml-alloc.c, ggml-backend.cpp, ggml-backend-reg.cpp, ggml-quants.c, ggml-threading.cpp, *.h}`
+- `ggml/src/ggml-cpu/{ggml-cpu.c, ggml-cpu.cpp, ggml-cpu-aarch64.cpp, ggml-cpu-hbm.cpp, ggml-cpu-quants.c, ggml-cpu-traits.cpp, unary-ops.cpp, binary-ops.cpp, *.h}`
+- `ggml/src/ggml-cpu/amx/{amx.cpp, amx.h, common.h, mmq.cpp, mmq.h}`（在 ARM 上是空翻译单元，仅为满足 ggml-cpu.cpp 的无条件 `#include`）
+- 故意删除的：CoreML、OpenVINO、Metal、CUDA、SYCL、Vulkan、examples、samples、tests、CI、scripts、KleidiAI
+
+**性能基线**：CPU 推理，`base` 模型 / 1080P 5min 视频 ≈ 实时倍率 1×（待真机验证）。Vulkan/OpenCL 不开。
+
+**版本升级路径**：whisper.cpp 上游 patch 升级时，对照 `whisper-arch.h` 与 `whisper.cpp/include/whisper.h` 的 ABI（`whisper_full_params` 字段顺序），一次性 `cp -R` 整棵 vendor 目录然后跑 `assembleDebug` —— 因为 CMake 源文件清单是显式列举，新增文件需要手动加进 `CMakeLists.txt`。
 
 ### 4.3 DI：为什么是 Koin 而不是 Hilt
 

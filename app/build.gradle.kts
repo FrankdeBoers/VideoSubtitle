@@ -27,6 +27,16 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // ABIs are restricted by `splits.abi` below; don't redeclare the
+        // filter on `ndk` or AGP rejects the duplicate. cmake flags only:
+        externalNativeBuild {
+            cmake {
+                arguments += listOf("-DANDROID_STL=c++_shared")
+                cppFlags += listOf("-std=c++17", "-fexceptions")
+                cFlags += listOf("-Wno-unused-function")
+            }
+        }
     }
 
     buildFeatures {
@@ -40,6 +50,23 @@ android {
             reset()
             include("arm64-v8a", "armeabi-v7a")
             isUniversalApk = false
+        }
+    }
+
+    // whisper.cpp is vendored under src/main/cpp/whisper.cpp and built via
+    // CMake. Pin the NDK so first-time clones get a deterministic toolchain.
+    ndkVersion = "26.3.11579264"
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
         }
     }
 
@@ -101,6 +128,9 @@ dependencies {
 
     // FFmpegKit (audio extraction Phase 2; subtitle burn Phase 5)
     implementation(libs.ffmpeg.kit.full.gpl)
+
+    // OkHttp — Whisper model downloads with Range request resume
+    implementation(libs.okhttp)
 
     // Logging
     implementation(libs.timber)

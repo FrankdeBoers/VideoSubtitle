@@ -24,3 +24,10 @@
 # rename or strip them or native code can't find them.
 -keep class com.arthenica.ffmpegkit.** { *; }
 -keep class com.arthenica.smartexception.** { *; }
+
+# WhisperLib — JNI symbols are bound to com.whispercpp.whisper.WhisperLib
+# method names. R8 must keep the class and external fun signatures intact.
+-keep class com.whispercpp.whisper.** { *; }
+-keepclasseswithmembernames class com.whispercpp.whisper.** {
+    native <methods>;
+}

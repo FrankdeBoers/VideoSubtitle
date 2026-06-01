@@ -27,8 +27,9 @@ class ProgressFragment : BaseFragment<FragmentProgressBinding>(FragmentProgressB
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        binding.btnStart.setOnClickListener { viewModel.startExtraction() }
+        binding.btnStart.setOnClickListener { viewModel.startPipeline() }
         binding.btnCancel.setOnClickListener { viewModel.cancel() }
+        binding.btnDownloadModel.setOnClickListener { viewModel.downloadModel() }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -49,6 +50,53 @@ class ProgressFragment : BaseFragment<FragmentProgressBinding>(FragmentProgressB
         binding.stageLabel.text = stageLabel(state)
         binding.btnStart.isEnabled = state.canStart
         binding.btnCancel.isEnabled = state.canCancel
+
+        renderModel(state.model)
+    }
+
+    private fun renderModel(status: ModelStatus) {
+        val ctx = requireContext()
+        when (status) {
+            ModelStatus.Unknown -> {
+                binding.modelLabel.isVisible = false
+                binding.modelProgress.isVisible = false
+                binding.btnDownloadModel.isVisible = false
+            }
+            is ModelStatus.Missing -> {
+                binding.modelLabel.isVisible = true
+                binding.modelLabel.text = ctx.getString(
+                    R.string.model_missing,
+                    status.modelName,
+                    formatBytes(status.sizeBytes),
+                )
+                binding.modelProgress.isVisible = false
+                binding.btnDownloadModel.isVisible = true
+            }
+            is ModelStatus.Downloading -> {
+                binding.modelLabel.isVisible = true
+                binding.modelLabel.text = ctx.getString(
+                    R.string.model_downloading,
+                    status.percent,
+                    formatBytes(status.downloaded),
+                    formatBytes(status.total),
+                )
+                binding.modelProgress.isVisible = true
+                binding.modelProgress.setProgressCompat(status.percent, true)
+                binding.btnDownloadModel.isVisible = false
+            }
+            ModelStatus.Ready -> {
+                binding.modelLabel.isVisible = true
+                binding.modelLabel.text = ctx.getString(R.string.model_ready)
+                binding.modelProgress.isVisible = false
+                binding.btnDownloadModel.isVisible = false
+            }
+            is ModelStatus.Failed -> {
+                binding.modelLabel.isVisible = true
+                binding.modelLabel.text = ctx.getString(R.string.model_failed, status.reason)
+                binding.modelProgress.isVisible = false
+                binding.btnDownloadModel.isVisible = true
+            }
+        }
     }
 
     private fun stageLabel(state: ProgressUiState): String {
@@ -58,10 +106,19 @@ class ProgressFragment : BaseFragment<FragmentProgressBinding>(FragmentProgressB
             is TaskStage.Extracting -> if (s.percent >= 100) ctx.getString(R.string.progress_audio_ready)
                 else ctx.getString(R.string.task_stage_extracting, s.percent)
             is TaskStage.Transcribing -> ctx.getString(R.string.task_stage_transcribing, s.percent)
-            TaskStage.Editing -> ctx.getString(R.string.task_stage_editing)
+            TaskStage.Editing -> ctx.getString(R.string.progress_subtitle_ready)
             is TaskStage.Burning -> ctx.getString(R.string.task_stage_burning, s.percent)
             is TaskStage.Done -> ctx.getString(R.string.task_stage_done)
             is TaskStage.Failed -> ctx.getString(R.string.task_stage_failed, s.reason)
         }
+    }
+
+    private fun formatBytes(bytes: Long): String {
+        if (bytes <= 0) return "0 B"
+        val units = arrayOf("B", "KB", "MB", "GB")
+        var v = bytes.toDouble()
+        var i = 0
+        while (v >= 1024 && i < units.lastIndex) { v /= 1024; i++ }
+        return if (i == 0) "${bytes} B" else "%.1f %s".format(v, units[i])
     }
 }

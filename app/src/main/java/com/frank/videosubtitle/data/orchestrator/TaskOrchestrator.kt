@@ -1,8 +1,13 @@
 package com.frank.videosubtitle.data.orchestrator
 
+import com.frank.videosubtitle.data.repository.ModelRepository
 import com.frank.videosubtitle.data.repository.TaskRepository
+import com.frank.videosubtitle.domain.engine.TranscribeEvent
+import com.frank.videosubtitle.domain.engine.WhisperConfig
 import com.frank.videosubtitle.domain.model.TaskStage
+import com.frank.videosubtitle.domain.model.WhisperModel
 import com.frank.videosubtitle.domain.usecase.ExtractAudioUseCase
+import com.frank.videosubtitle.domain.usecase.TranscribeAudioUseCase
 import com.frank.videosubtitle.util.DispatcherProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -24,40 +29,47 @@ class TaskOrchestrator(
     private val appScope: CoroutineScope,
     private val dispatchers: DispatcherProvider,
     private val taskRepository: TaskRepository,
+    private val modelRepository: ModelRepository,
     private val extractAudio: ExtractAudioUseCase,
+    private val transcribeAudio: TranscribeAudioUseCase,
 ) {
 
     private val jobs = ConcurrentHashMap<String, Job>()
 
-    fun startAudioExtraction(taskId: String) {
+    fun start(taskId: String, model: WhisperModel = WhisperModel.Base) {
         if (jobs[taskId]?.isActive == true) {
-            Timber.d("Audio extraction already running for %s", taskId)
+            Timber.d("Pipeline already running for %s", taskId)
             return
         }
         jobs[taskId] = appScope.launch(dispatchers.io) {
-            val task = taskRepository.find(taskId) ?: run {
-                Timber.w("startAudioExtraction: task %s not found", taskId); return@launch
-            }
-            val source = File(task.video.cachedPath)
-            if (!source.exists()) {
-                taskRepository.update(task.copy(stage = TaskStage.Failed("Source file missing: ${source.path}")))
-                return@launch
-            }
-            val output = File(source.parentFile, "audio.wav")
-            taskRepository.update(task.copy(stage = TaskStage.Extracting(0)))
+            try {
+                val task = taskRepository.find(taskId) ?: run {
+                    Timber.w("start: task %s not found", taskId); return@launch
+                }
+                val source = File(task.video.cachedPath)
+                if (!source.exists()) {
+                    taskRepository.update(task.copy(stage = TaskStage.Failed("Source file missing: ${source.path}")))
+                    return@launch
+                }
+                val taskDir = source.parentFile ?: error("Task source has no parent dir")
+                val audioFile = File(taskDir, "audio.wav")
+                val srtFile = File(taskDir, "subtitle.srt")
 
-            extractAudio(source, output, task.video.durationMs)
-                .catch { t ->
-                    Timber.e(t, "extractAudio failed for %s", taskId)
+                if (!runExtraction(taskId, source, audioFile, task.video.durationMs)) return@launch
+
+                val modelFile = modelRepository.fileFor(model)
+                if (!modelRepository.isAvailable(model)) {
                     val current = taskRepository.find(taskId) ?: task
-                    taskRepository.update(current.copy(stage = TaskStage.Failed(t.message ?: t.javaClass.simpleName)))
+                    taskRepository.update(
+                        current.copy(stage = TaskStage.Failed("Model ${model.fileName} not downloaded")),
+                    )
+                    return@launch
                 }
-                .onCompletion { jobs.remove(taskId) }
-                .collect { progress ->
-                    val current = taskRepository.find(taskId) ?: return@collect
-                    if (current.stage is TaskStage.Failed) return@collect
-                    taskRepository.update(current.copy(stage = TaskStage.Extracting(progress.percent)))
-                }
+
+                runTranscription(taskId, audioFile, srtFile, model, modelFile)
+            } finally {
+                jobs.remove(taskId)
+            }
         }
     }
 
@@ -65,9 +77,81 @@ class TaskOrchestrator(
         jobs.remove(taskId)?.cancel()
         appScope.launch(dispatchers.io) {
             val current = taskRepository.find(taskId) ?: return@launch
-            if (current.stage is TaskStage.Extracting) {
-                taskRepository.update(current.copy(stage = TaskStage.Failed("Cancelled")))
+            when (current.stage) {
+                is TaskStage.Extracting,
+                is TaskStage.Transcribing,
+                -> taskRepository.update(current.copy(stage = TaskStage.Failed("Cancelled")))
+                else -> Unit
             }
         }
+    }
+
+    private suspend fun runExtraction(
+        taskId: String,
+        source: File,
+        output: File,
+        durationMs: Long,
+    ): Boolean {
+        var failed = false
+        val current = taskRepository.find(taskId) ?: return false
+        taskRepository.update(current.copy(stage = TaskStage.Extracting(0)))
+
+        extractAudio(source, output, durationMs)
+            .catch { t ->
+                failed = true
+                Timber.e(t, "extractAudio failed for %s", taskId)
+                val now = taskRepository.find(taskId) ?: current
+                taskRepository.update(now.copy(stage = TaskStage.Failed(t.message ?: t.javaClass.simpleName)))
+            }
+            .collect { progress ->
+                val now = taskRepository.find(taskId) ?: return@collect
+                if (now.stage is TaskStage.Failed) return@collect
+                taskRepository.update(now.copy(stage = TaskStage.Extracting(progress.percent)))
+            }
+        return !failed
+    }
+
+    private suspend fun runTranscription(
+        taskId: String,
+        wav: File,
+        srtOutput: File,
+        model: WhisperModel,
+        modelFile: File,
+    ) {
+        val current = taskRepository.find(taskId) ?: return
+        taskRepository.update(current.copy(stage = TaskStage.Transcribing(0)))
+
+        val config = WhisperConfig(
+            model = model,
+            modelFile = modelFile,
+            // null = let whisper auto-detect; settings UI in Phase 7 will override.
+            language = null,
+            translate = false,
+            initialPrompt = null,
+            nThreads = 4,
+        )
+
+        transcribeAudio(wav, srtOutput, config)
+            .catch { t ->
+                Timber.e(t, "transcribeAudio failed for %s", taskId)
+                val now = taskRepository.find(taskId) ?: current
+                if (now.stage !is TaskStage.Failed) {
+                    taskRepository.update(now.copy(stage = TaskStage.Failed(t.message ?: t.javaClass.simpleName)))
+                }
+            }
+            .onCompletion { Timber.d("transcribe pipeline completed for %s", taskId) }
+            .collect { event ->
+                val now = taskRepository.find(taskId) ?: return@collect
+                if (now.stage is TaskStage.Failed) return@collect
+                when (event) {
+                    is TranscribeEvent.Progress -> {
+                        taskRepository.update(now.copy(stage = TaskStage.Transcribing(event.percent)))
+                    }
+                    is TranscribeEvent.Done -> {
+                        // Phase 4 (editor) will hold this state; for now mark Editing.
+                        taskRepository.update(now.copy(stage = TaskStage.Editing))
+                    }
+                }
+            }
     }
 }

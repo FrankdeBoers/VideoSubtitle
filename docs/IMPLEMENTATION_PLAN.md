@@ -141,67 +141,66 @@
 
 **目标**：把 `audio.wav` 跑过 Whisper，得到 `Subtitle`，序列化为 SRT 文件，UI 展示进度。
 
-### 3.1 模型管理
-- `ModelRepository`：
-  - `observeAvailableModels(): Flow<Set<WhisperModel>>`（扫 `filesDir/models`）。
-  - `download(model: WhisperModel): Flow<DownloadProgress>`（OkHttp + 范围请求 + SHA-256 校验）。
-  - 默认下载源：HuggingFace `ggerganov/whisper.cpp` 仓库（`https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin`）。在设置中允许用户改为镜像。
-- 设置页 `SettingsFragment` 提供"下载/删除模型"入口。
+**状态：已落地**（2026-05-22）。`assembleDebug` 通过，`libwhisper.so` 同时为 `arm64-v8a` 与 `armeabi-v7a` 产出；JVM 单测（含 SRT 往返）绿。真机端到端尚未跑（待用户在物理设备上验证）。
 
-### 3.2 引入 whisper-jni
-- 加依赖 `io.github.givimad:whisper-jni:<version>`。
-- ABI splits 已配置，确认 jniLibs 包含 arm64-v8a / armeabi-v7a。
-- `proguard-rules.pro` 加 `-keep class io.github.givimad.whisperjni.** { *; }`。
-- 写一个 `WhisperSmokeTest`（仪器化）：跑 5 秒英文音频确认能拿到 segment。
+### 3.1 模型管理 ✅
+- `data.repository.ModelRepository` / `DefaultModelRepository`：
+  - `fileFor(model)` → `filesDir/models/<name>`；`isAvailable(model)` 校验文件存在 + 字节数匹配。
+  - `download(model): Flow<ModelDownloadEvent>` — OkHttp 4.12.0，`.part` 临时文件 + `Range: bytes=N-` 断点续传，64KB 读取，每 256KB 发一次 `Progress`，完成后 SHA-256 校验，失败抛 `ModelChecksumException` 并删除文件。
+  - 默认源：HuggingFace `ggerganov/whisper.cpp/resolve/main/ggml-base.bin`，SHA-256 `60ed5bc3...2efe`，141 MB。
+- 设置页（Phase 7）尚未做；当前在 `ProgressFragment` 内联显示"下载模型"按钮。
 
-### 3.3 WhisperEngine 抽象
+### 3.2 vendoring whisper.cpp + NDK 构建 ✅（路线 A，由 SDD §4.1 修订记录）
+**为何不用 whisper-jni：** 1.7.1 jar 内只有 `macos-arm64/`、`debian-*/`、`win-amd64/` 等桌面 GLIBC 二进制，Android（bionic libc）加载会直接失败。SDD 当时假设它跨平台是错的。
+
+**改为：** 把 `ggerganov/whisper.cpp` v1.7.5 的最小子集 vendor 到 `app/src/main/cpp/whisper.cpp/` —— 仅保留 ggml + whisper + ggml-cpu 后端（CoreML/OpenVINO/Metal/CUDA 全部砍掉）。AGP 9 + NDK 26.3.11579264 + CMake 3.22.1 + `externalNativeBuild` 直接编出 `libwhisper.so`。
+- `app/src/main/cpp/CMakeLists.txt`：单 target `whisper`，源文件清单显式列出 ggml/ggml-alloc/ggml-backend(-reg)/ggml-quants/ggml-threading + ggml-cpu/{ggml-cpu.c, ggml-cpu.cpp, aarch64, hbm, quants, traits, unary-ops, binary-ops} + amx/{amx.cpp, mmq.cpp}（amx 在 ARM 上是空翻译单元，但 ggml-cpu.cpp 无条件 `#include "amx/amx.h"`，所以头要在路径上）。Release 加 `-O3 -fvisibility=hidden -ffunction-sections --gc-sections --exclude-libs,ALL`。
+- `app/src/main/cpp/whisper_jni.c`：JNI bridge，导出 `Java_com_whispercpp_whisper_WhisperLib_*`。新增 `whisper_state_extras { volatile progress; volatile aborted }` 给 `progress_callback` 写、给 `abort_callback` 读，Kotlin 侧 250ms 轮询读进度、取消时翻 `setAbort(true)`。
+- Kotlin facade：`com.whispercpp.whisper.WhisperLib`（`object`，方法直接挂在类上没有 Companion，避免 `_00024Companion_` mangling）。
+- `proguard-rules.pro` `-keep class com.whispercpp.whisper.** { *; }` + 保住 `native` 方法。
+- AndroidManifest `INTERNET` 权限（模型下载用）。
+- AGP 9 坑：`splits.abi` 与 `defaultConfig.ndk.abiFilters` 不能同时声明，CMake 会跟随 `splits.abi` 的 ABI 列表自动构建。
+- FFmpegKit 也带 `libc++_shared.so`，AGP 选 app 自己的版本（构建期 warning 可忽略）。
+
+### 3.3 WhisperEngine 抽象 ✅
 ```kotlin
 interface WhisperEngine {
-    fun transcribe(
-        wav: File,
-        config: WhisperConfig,
-    ): Flow<TranscribeEvent>
+    fun transcribe(wav: File, config: WhisperConfig): Flow<TranscribeEvent>
 }
-
 sealed interface TranscribeEvent {
     data class Progress(val percent: Int) : TranscribeEvent
-    data class Segment(val seg: SubtitleSegment) : TranscribeEvent
     data class Done(val subtitle: Subtitle) : TranscribeEvent
-    data class Failed(val error: AppError) : TranscribeEvent
 }
-
 data class WhisperConfig(
-    val model: WhisperModel,
-    val language: String? = null,        // null = auto
-    val translate: Boolean = false,      // 翻译为英文（whisper 内置，非 LLM）
-    val initialPrompt: String? = null,
-    val nThreads: Int = 4,
-    val wordTimestamps: Boolean = false,
+    val model: WhisperModel, val modelFile: File,
+    val language: String? = null, val translate: Boolean = false,
+    val initialPrompt: String? = null, val nThreads: Int = 4,
 )
 ```
+实际比早期草稿少了 `Segment` / `Failed` 子类（流的失败用 `close(throwable)` 表达，分段在 `Done` 一次性拿到）。
 
-实现 `WhisperJniEngine`：
-- 在 `Dispatchers.IO` 上 load model；任务一次实例一个 `WhisperContext`（避免并发）。
-- 中文场景默认注入 `initialPrompt = "你好，我们需要使用简体中文，以下是普通话的句子。"`。
-- 进度回调：whisper-jni 的 `progressCallback(percent)` 转成 `TranscribeEvent.Progress`。
-- 在 `awaitClose` 中关闭 `WhisperContext`，处理取消。
+`data.engine.WhisperJniEngine`：`callbackFlow` 包住 `whisper_full`；`SupervisorJob + io` 子作用域里跑两个 coroutine —— 一个解码 WAV → `whisper_full` 阻塞调用、一个 250ms 轮询 native 进度。`awaitClose` 时 `setAbort(true)`、cancel 子作用域、起后台线程 sleep 50ms 让 native 退栈再 `freeState/freeContext`（避免在 `whisper_full` 还引用 ctx 时释放）。
 
-### 3.4 SRT 序列化
-- `SubtitleRepository.writeSrt(subtitle, outFile)` —— 自实现，单测覆盖边界（毫秒补零、跨小时、空文本跳过）。
-- `SubtitleRepository.readSrt(file): Subtitle` —— 解析回 domain 对象（用于编辑器）。
+`data.engine.WavDecoder`：自实现 RIFF/fmt/data chunk 解析 —— 严格要求 mono 16kHz 16-bit PCM（管线唯一生产者就是 FFmpegKitEngine，错误就是 bug 不做兼容），输出 `FloatArray`（s16 / 32768f）。
 
-### 3.5 UI 集成
-- `ProgressFragment` 展示组合进度：音频 5% + 识别 70%。
-- 识别完成后自动导航到 `EditorFragment`。
+### 3.4 SRT 序列化 ✅
+- `data.source.local.SrtSerializer.writeSrt/readSrt`，`HH:MM:SS,mmm`（comma decimal），跨小时、补零、跳过空 segment 全部由 `SrtSerializerTest` 锁住（6 个 case，往返、负数 clamp、`.` / `,` 都接受）。
+- `domain.usecase.TranscribeAudioUseCase` 在产出 `Done` 时落盘 `subtitle.srt`，并在已存在且非空时跳过推理（幂等于磁盘）。
 
-### 验收
-- `WhisperEngineTest`（JVM）以一段已知小 wav 验证至少返回 1 个 segment、文本非空。
-- 真机端到端：5min 英文视频跑完不崩，输出 SRT 与 VideoCaptioner 桌面版同模型结果"看起来差不多"。
-- 中断（用户点取消）能在 < 2s 内停止 native 调用，不留泄漏文件。
+### 3.5 UI 与编排 ✅
+- `TaskOrchestrator.start(taskId, model)` —— 抽取 → 转写一站式驱动，按阶段更新 `TaskState.stage`（`Extracting` → `Transcribing` → `Editing`，`Editing` 是 Phase 4 接手前的终态占位）。Failed 不会被后续阶段覆盖。
+- `ProgressViewModel` 引入 `ModelStatus` sealed（Unknown/Missing/Downloading/Ready/Failed）；模型未就绪时禁用 Start，按钮入口直接调 `modelRepository.download`。
+- `ProgressFragment` 上半部模型状态（label + 进度条 + 下载按钮），下半部任务进度。组合进度的 5%/70% 加权暂未做（两个阶段独立显示，等真机看主观体验再决定要不要合）。
 
-### 风险
-- whisper-jni 在 armeabi-v7a 设备上可能 OOM；设置中默认隐藏 `small` 模型，并在 RAM < 4GB 时仅暴露 `tiny`。
-- 模型下载中断恢复：OkHttp 用 `Range: bytes=N-` 续传 —— 要测断网恢复。
+### 验收（已通过）
+- ✅ `./gradlew :app:testDebugUnitTest` 绿（含 `SrtSerializerTest`）。
+- ✅ `./gradlew :app:assembleDebug` 绿，`libwhisper.so` arm64-v8a 9.6 MB / armeabi-v7a 8.5 MB。
+- ⏳ 真机端到端：5min 英文视频，待用户跑（模型下载 + 转写）。
+- ⏳ 取消测试：< 2s 内 native 退栈，无 .part 残留。
+
+### 风险（剩余）
+- 真机首次推理可能 OOM —— 当前只支持 base（141MB 文件，运行时 ~200MB），更大模型留到 Phase 7 设置页。
+- 中文 prompt 默认值（"你好，我们需要使用简体中文..."）暂未注入，等设置页接入后再加。
 
 ---
 
