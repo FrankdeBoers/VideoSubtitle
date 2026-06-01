@@ -1,4 +1,20 @@
 <resources>
     <string name="app_name">VideoSubtitle</string>
-    <string name="home_title_placeholder">Hello, VideoSubtitle</string>
+    <string name="home_title">字幕任务</string>
+    <string name="home_empty">还没有任务，点击右下角加号导入视频</string>
+    <string name="home_add_video">添加视频</string>
+    <string name="import_failed">导入失败：%1$s</string>
+    <string name="task_stage_idle">待处理</string>
+    <string name="task_stage_extracting">音频提取中 %1$d%%</string>
+    <string name="task_stage_transcribing">字幕识别中 %1$d%%</string>
+    <string name="task_stage_editing">编辑中</string>
+    <string name="task_stage_burning">合成中 %1$d%%</string>
+    <string name="task_stage_done">已完成</string>
+    <string name="task_stage_failed">失败：%1$s</string>
+    <string name="duration_hms">%1$d:%2$02d:%3$02d</string>
+    <string name="duration_ms">%1$d:%2$02d</string>
+    <string name="progress_title">处理进度</string>
+    <string name="progress_start_extract">开始提取音频</string>
+    <string name="progress_cancel">取消</string>
+    <string name="progress_audio_ready">音频已就绪（下一阶段待 Phase 3 接入）</string>
 </resources>

@@ -55,9 +55,16 @@
 
 ---
 
-## 阶段 1 — 视频选择与首页
+## 阶段 1 — 视频选择与首页 ✅ 已落地
 
 **目标**：用户能从 SAF 选一个本地视频，App 解析其元数据并展示在首页"任务列表"中（此时还没有任何处理，仅是录入）。
+
+**关键决策与坑（落地后追加）**：
+- KSP `2.2.10-2.0.2` 与 AGP 9.1.1 的源集冲突：AGP 9 默认禁止 `kotlin.sourceSets` 修改，KSP 仍通过该 DSL 注册 `build/generated/ksp/...`，构建报 `Using kotlin.sourceSets DSL to add Kotlin sources is not allowed with built-in Kotlin`。在 `gradle.properties` 加 `android.disallowKotlinSourceSets=false` 解锁；待 KSP2 完成 AGP 9 迁移后移除。
+- Room 引入了 `androidx.room` Gradle 插件 + `room { schemaDirectory("$projectDir/schemas") }`，schema 落到 `app/schemas/`，今后改 entity 必须 bump `@Database(version)` 并提交新 JSON。
+- `TaskEntity` 用扁平列存（不存 JSON），stage 通过 `stageKind/stagePercent/stageMessage` 三列还原；`TaskMappers` 和 `TaskMappersTest` 把 stageKind 字符串钉死（`idle/extracting/transcribing/editing/burning/done/failed`），后续重命名相当于 schema 变更。
+- ViewModel 通过 Koin 的 `viewModel { ... }` DSL（`org.koin.core.module.dsl.viewModel`）注册，Fragment 用 `by viewModel()` 注入。
+- 缩略图用 Coil 3（`io.coil-kt.coil3:coil` + `coil-video`）。当前直接用 `MediaMetadataRetriever.frameAtTime` 抽出 JPEG 落到 `cacheDir/tasks/<id>/thumb.jpg` —— `coil-video` 暂未启用，但 Phase 4 编辑器抽帧时会派上用场。
 
 ### 1.1 VideoMeta 解析
 - `data/source/media/UriResolver`：
@@ -88,33 +95,36 @@
 
 ---
 
-## 阶段 2 — 音频提取（FFmpegKit 接入）
+## 阶段 2 — 音频提取（FFmpegKit 接入）✅ 已落地
 
 **目标**：把 `cacheDir/tasks/<id>/source.<ext>` 转成 `audio.wav`（16kHz / mono / PCM s16le），并在 UI 上展示进度。
 
 ### 2.1 引入 FFmpegKit
-- 在 `libs.versions.toml` 新增 `com.arthenica:ffmpeg-kit-full-gpl:6.0-2.LTS.1`。
-- `proguard-rules.pro` 加 `-keep class com.arthenica.** { *; }` `-keep class com.arthenica.ffmpegkit.** { *; }`。
-- 验证：在 `MainActivity.onCreate` 中临时打印 `FFmpegKitConfig.getFFmpegVersion()`。验证完成立即移除。
+- **供应链坑（最重要）**：原计划写的 `6.0-2.LTS.1` 实际上**从未在 Maven Central 发布过**；作者于 2025 年初归档了 `arthenica/ffmpeg-kit` 并撤下了 Central 上的二进制。最后真实存在的版本是 `6.0.LTS`（2023-08），但 CDN 上 AAR 也已 404。
+- 当前接入：在 `settings.gradle.kts` 添加阿里云 + 华为云 Maven 镜像，使用 `content { includeGroup("com.arthenica") }` 严格限制到该 group；这两家公共镜像仍缓存有 `ffmpeg-kit-full-gpl-6.0.LTS.aar`，SHA1 一致 (`4b3fc143f29a61044bb87b9c8dd80982d7b1c35b`)。`smart-exception-java:0.2.1` 仍在 Central。
+- `libs.versions.toml` 中：`ffmpegKit = "6.0.LTS"`，`ffmpeg-kit-full-gpl = ...`。
+- `proguard-rules.pro` 加 `-keep class com.arthenica.ffmpegkit.** { *; }` 和 `-keep class com.arthenica.smartexception.** { *; }`（JNI 桥与异常类）。
+- 后续 v2 时若想脱离镜像：要么自托管 AAR 到 `app/libs/`（73MB+），要么换路径（Media3 Transformer / 自己 fork 出货）。先用镜像，把这一项作为已知技术债记录在 SDD §11。
 
-### 2.2 FFmpegEngine 抽象
-- 接口：
+### 2.2 FFmpegEngine 抽象（实际落地）
+- 接口（`domain/engine/FFmpegEngine.kt`）只暴露 Flow，DomainResult 形态在内部体现为 Flow 的成功/异常：
   ```kotlin
   interface FFmpegEngine {
-      suspend fun extractAudio(input: File, output: File): DomainResult<Unit>
-      fun extractAudioFlow(input: File, output: File): Flow<FfmpegProgress>
-      // burn 在阶段 5 加
+      fun extractAudio(input: File, output: File, durationMs: Long): Flow<FfmpegProgress>
   }
+  data class FfmpegProgress(val percent: Int, val timeMs: Long, val sizeBytes: Long, val speedMultiplier: Double)
+  class FfmpegException(val returnCodeValue: Int, val logsTail: String, ...): RuntimeException(...)
   ```
-- `FFmpegProgress(percent: Int, sizeBytes: Long, speed: Double)`。
-- 实现 `FFmpegKitEngine`：用 `FFmpegKit.executeAsync(cmd, completeCallback, logCallback, statsCallback)`，把 `Statistics.time / durationMs * 100` 通过 `callbackFlow` 上报。
+- 实现 `data/engine/FFmpegKitEngine.kt`：`FFmpegKit.executeAsync(cmd, completeCallback, logCallback, statsCallback)`；`Statistics.time / durationMs * 100` → `FfmpegProgress`；命令失败时 `close(FfmpegException)` 携带最后 40 行 warning 日志，便于诊断；`awaitClose` 调 `FFmpegKit.cancel(sessionId)` 并删除半成品 wav。
 
 ### 2.3 用例
-- `domain/usecase/ExtractAudioUseCase(input, output): Flow<FfmpegProgress>`。
+- `domain/usecase/ExtractAudioUseCase(input, output, durationMs): Flow<FfmpegProgress>`。
+- 已实现幂等：若 `audio.wav` 存在且 > 1KB，直接返回单条 `FfmpegProgress(percent=100,...)`，跳过 FFmpeg。
 
-### 2.4 UI
-- 进度页 `ProgressFragment`：从启动转写按钮进入，先展示音频提取进度条（5% 权重映射）。
-- 后台 Service：先用普通 coroutine + ApplicationScope，到阶段 6 再升级为前台 Service。
+### 2.4 编排与 UI
+- `data/orchestrator/TaskOrchestrator`：`single` Koin 作用域，注入 `applicationScope`（`SupervisorJob() + Dispatchers.IO`）。`startAudioExtraction(taskId)` / `cancel(taskId)` 把进度写回 `TaskRepository`，ViewModel 只观察 Room。Phase 6 会把这块包到前台 Service。
+- 导航：`nav_main.xml` 加 `progressFragment`，`taskId: String` 作为 safeArgs；`HomeFragment` item 点击触发 `actionHomeToProgress(taskId)`。
+- `ProgressFragment` + `ProgressViewModel`：观察 `TaskRepository.observe(taskId)`，把 `TaskStage` 投影成 `ProgressUiState(percent, running, canStart, canCancel)`。两个按钮：开始 / 取消。
 
 ### 验收
 - 选一个 1080p 5min mp4，提取出的 wav 文件用 ffprobe 看是 `pcm_s16le, 16000 Hz, mono`。
@@ -123,6 +133,7 @@
 ### 风险
 - FFmpegKit 在某些机型 Android 14+ 启动慢，第一次调用有 ~500ms 延迟 —— 接受。
 - libass 依赖在 full-gpl 中已包含，不要换成普通 `ffmpeg-kit-full`，否则阶段 5 字幕样式失败。
+- 阿里云/华为云镜像可用性：两家都是历史性公共镜像，但都没有承诺保留已撤下的 artifact。**如果哪天某一家也开始返回 404**：先切到剩下那家；都丢失就走「自托管 AAR / Media3 重写」两条 fallback 之一。把 AAR 的 SHA1 钉死可以提前发现镜像被替换。
 
 ---
 

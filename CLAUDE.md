@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Android application `com.frank.videosubtitle` (VideoSubtitle). Goal: pick a local video → generate subtitles on-device with Whisper → burn subtitles back into the video with FFmpeg.
 
-**Current state: end of Phase 0** — MVVM scaffold in place (single Activity + Navigation Component + HomeFragment placeholder, Koin DI, Coroutines/Lifecycle wired, Timber). No business logic yet.
+**Current state: end of Phase 2** — Phase 1 + audio extraction via FFmpegKit (`6.0.LTS`, sourced from Aliyun/HuaweiCloud Maven mirrors after FFmpegKit was archived from Maven Central). `TaskOrchestrator` runs the pipeline on an application-scoped coroutine and writes progress to Room. `ProgressFragment` observes per-task state. No Whisper / burn yet.
 
 ## Authoritative design docs (read these first)
 
@@ -27,6 +27,9 @@ Android application `com.frank.videosubtitle` (VideoSubtitle). Goal: pick a loca
 - **Hilt is not on Maven Central with AGP 9 support yet.** Latest published Hilt (2.56.2, 2025-04) fails with `Android BaseExtension not found` against AGP 9.x. The fix landed on `main` (dagger PR #5084, 2026-01-20) but isn't released. Project uses **Koin 4.1.0** instead. See `docs/SDD.md` §4.3.
 - **`buildFeatures.buildConfig` is off by default in AGP 8+.** Must be explicitly `= true` to use `BuildConfig.DEBUG`.
 - **ABI splits enabled** (`arm64-v8a`, `armeabi-v7a`). If you build on an x86_64 emulator (e.g. Intel Mac), add `x86_64` to the include list locally — don't commit it.
+- **KSP + AGP 9 source-set guardrail.** AGP 9 disallows `kotlin.sourceSets` mutations, but KSP 2.0.x still registers its `build/generated/ksp/...` outputs that way. The opt-out `android.disallowKotlinSourceSets=false` in `gradle.properties` is required until KSP2 fully migrates. When KSP releases an AGP-9-clean version, drop the flag.
+- **Room schema export** is wired through the `androidx.room` Gradle plugin (`room { schemaDirectory("$projectDir/schemas") }`). Bump `@Database(version = ...)` for any schema change and commit the generated JSON under `app/schemas/`.
+- **FFmpegKit was pulled from Maven Central in 2025.** Author archived `arthenica/ffmpeg-kit`; `6.0.LTS` POM still lists in Central's index but the AAR/POM 404 on the CDN. The Aliyun (`maven.aliyun.com/repository/public`) and HuaweiCloud (`repo.huaweicloud.com/repository/maven`) mirrors still serve the cached AAR (SHA1 `4b3fc143f29a61044bb87b9c8dd80982d7b1c35b` matches across both). They're declared in `settings.gradle.kts` with `content { includeGroup("com.arthenica") }` so they're never consulted for anything else. If both mirrors stop serving it, fallbacks: self-host AAR in `app/libs/`, or pivot to Media3 Transformer.
 
 ## Build & test commands
 
@@ -46,18 +49,34 @@ Use the Gradle wrapper from the repo root:
 
 ```
 app/src/main/java/com/frank/videosubtitle/
-├── VideoSubtitleApp.kt    Application + Koin startup + Timber
-├── MainActivity.kt        Single Activity, hosts NavHostFragment, applies edge-to-edge insets
-├── di/AppModule.kt        Koin module (currently only DispatcherProvider)
-├── util/
-│   ├── DispatcherProvider.kt
-│   ├── AppError.kt        sealed AppError (ModelMissing/AudioExtractFailed/...)
-│   └── DomainResult.kt    sealed Success/Failure + map
-├── ui/common/BaseFragment.kt   ViewBinding lifecycle helper
-└── ui/home/HomeFragment.kt     Placeholder fragment
+├── VideoSubtitleApp.kt        Application + Koin startup + Timber
+├── MainActivity.kt            Single Activity, hosts NavHostFragment, edge-to-edge
+├── di/
+│   ├── AppModule.kt           DispatcherProvider, applicationScope (SupervisorJob+IO)
+│   ├── DataModule.kt          Room, repos, FFmpegKitEngine, ExtractAudioUseCase, TaskOrchestrator
+│   └── UiModule.kt            ViewModels (HomeViewModel, ProgressViewModel)
+├── domain/
+│   ├── model/                 VideoMeta, TaskStage (sealed), TaskState
+│   ├── engine/                FFmpegEngine (interface), FfmpegProgress, FfmpegException
+│   └── usecase/               ExtractAudioUseCase (idempotent on existing audio.wav)
+├── data/
+│   ├── engine/FFmpegKitEngine wraps FFmpegKit.executeAsync via callbackFlow
+│   ├── orchestrator/          TaskOrchestrator (app-scoped pipeline driver)
+│   ├── repository/            TaskRepository, VideoRepository
+│   └── source/
+│       ├── local/             Room: TaskEntity (flat columns), TaskDao,
+│       │                       AppDatabase, TaskMappers (StageKind: stable strings)
+│       └── media/UriResolver  copyToCache + MediaMetadataRetriever probe + thumb
+├── util/{DispatcherProvider, AppError, DomainResult}.kt
+└── ui/
+    ├── common/BaseFragment.kt
+    ├── home/                  HomeFragment (FAB+SAF picker), HomeViewModel,
+    │                           HomeUiState, TaskListAdapter (Coil for thumb)
+    └── progress/              ProgressFragment (taskId arg), ProgressViewModel,
+                                ProgressUiState; observes TaskRepository
 ```
 
-Empty package directories already exist for Phase 1+: `domain/{model,usecase}`, `data/{repository,source}`.
+`stageKind` strings (`idle/extracting/transcribing/editing/burning/done/failed`) are persisted in Room — renaming them is a schema break. `TaskMappersTest` pins them.
 
 ## Toolchain & SDK
 

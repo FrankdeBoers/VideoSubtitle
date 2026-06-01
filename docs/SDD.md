@@ -176,7 +176,9 @@ com.frank.videosubtitle
 ### 4.2 FFmpegKit 选型说明
 
 - `ffmpeg-kit-full-gpl` 包含 `libass` + `libfreetype`，是 `subtitles=` filter 烧入字幕样式的前提（普通包不含 libass）。
-- 锁定 `6.0-2.LTS.1`（最后稳定版，2024 年发布）。**上游已归档**，团队需确认能接受"不再有上游修复"。在 v2 评估迁移到 Media3 Transformer + 自渲染 OverlayEffect。
+- **实际锁定版本：`6.0.LTS`（2023-08）**。原计划写的 `6.0-2.LTS.1` 在 Maven Central 上从未存在过，是初版 SDD 的笔误。
+- **供应链变更（2025 → 现在）**：作者 2025 年初归档 `arthenica/ffmpeg-kit` 仓库并撤下 Maven Central 的 binary。当前接入路径为通过阿里云 / 华为云 Maven 公共镜像拉取仍被缓存的 `6.0.LTS` AAR（SHA1 `4b3fc143f29a61044bb87b9c8dd80982d7b1c35b` 已比对一致），在 `settings.gradle.kts` 中以 `content { includeGroup("com.arthenica") }` 严格隔离。
+- **风险与 fallback 顺序**：(1) 当前镜像方案 → (2) 自托管 AAR 到 `app/libs/`（73MB）+ git-lfs / 外部分发 → (3) 整体迁移到 Media3 Transformer（音频抽取 + OverlayEffect 字幕渲染，舍弃 FFmpeg 命令行哲学）。把"无 FFmpeg 上游修复"作为已知技术债，列入 v2 评估议程。
 - 包大小代价：`full-gpl` ABI 拆分后单架构 APK 增加 ~25–35MB。设置里默认 ABI splits + R8 关闭混淆 ffmpeg 相关包（`proguard-rules.pro` 添加保留规则）。
 
 ---

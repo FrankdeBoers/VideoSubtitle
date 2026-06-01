@@ -2,6 +2,8 @@ package com.frank.videosubtitle
 
 import android.app.Application
 import com.frank.videosubtitle.di.appModule
+import com.frank.videosubtitle.di.dataModule
+import com.frank.videosubtitle.di.uiModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
@@ -16,7 +18,7 @@ class VideoSubtitleApp : Application() {
         startKoin {
             androidLogger(Level.INFO)
             androidContext(this@VideoSubtitleApp)
-            modules(appModule)
+            modules(appModule, dataModule, uiModule)
         }
     }
 }
