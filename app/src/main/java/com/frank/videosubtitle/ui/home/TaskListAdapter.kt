@@ -61,7 +61,10 @@ class TaskListAdapter(
         fun bind(task: TaskState) {
             val ctx = binding.root.context
             binding.title.text = task.video.displayName
-            binding.duration.text = formatDuration(ctx, task.video.durationMs)
+            binding.duration.text = ctx.getString(
+                R.string.task_video_duration,
+                formatDuration(ctx, task.video.durationMs),
+            )
             binding.stage.text = formatStage(ctx, task.stage)
             bindCostTime(task)
             val thumb = task.video.thumbnailPath?.let(::File)
