@@ -4,6 +4,7 @@ sealed interface TaskStage {
     data object Idle : TaskStage
     data class Extracting(val percent: Int) : TaskStage
     data class Transcribing(val percent: Int) : TaskStage
+    data class Translating(val percent: Int) : TaskStage
     data object Editing : TaskStage
     data class Burning(val percent: Int) : TaskStage
     data class Done(val outputPath: String) : TaskStage

@@ -152,6 +152,7 @@ class ProgressFragment : BaseFragment<FragmentProgressBinding>(FragmentProgressB
             is TaskStage.Extracting -> if (s.percent >= 100) ctx.getString(R.string.progress_audio_ready)
                 else ctx.getString(R.string.task_stage_extracting, s.percent)
             is TaskStage.Transcribing -> ctx.getString(R.string.task_stage_transcribing, s.percent)
+            is TaskStage.Translating -> ctx.getString(R.string.task_stage_translating, s.percent)
             TaskStage.Editing -> ctx.getString(R.string.progress_subtitle_ready)
             is TaskStage.Burning -> ctx.getString(R.string.task_stage_burning, s.percent)
             is TaskStage.Done -> ctx.getString(R.string.task_stage_done)

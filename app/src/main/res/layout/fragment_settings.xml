@@ -46,6 +46,20 @@
                 android:id="@+id/card_small"
                 layout="@layout/item_model_card" />
 
+            <!-- Section: Translation -->
+            <TextView
+                style="@style/SettingsSectionHeader"
+                android:text="@string/settings_section_translate" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switch_translate_zh"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_translate_to_chinese" />
+            <TextView
+                style="@style/SettingsHint"
+                android:text="@string/settings_translate_to_chinese_hint" />
+
             <!-- Section: Language -->
             <TextView
                 style="@style/SettingsSectionHeader"

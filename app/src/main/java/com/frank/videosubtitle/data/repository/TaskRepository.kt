@@ -60,6 +60,7 @@ class DefaultTaskRepository(
             val stage = state.stage
             val needsRewind = stage is TaskStage.Extracting ||
                 stage is TaskStage.Transcribing ||
+                stage is TaskStage.Translating ||
                 stage is TaskStage.Burning
             if (!needsRewind) continue
             val taskDir = File(state.video.cachedPath).parentFile

@@ -185,6 +185,7 @@ class VideoProcessingService : Service() {
     private fun stageText(stage: TaskStage): String = when (stage) {
         is TaskStage.Extracting -> getString(R.string.task_stage_extracting, stage.percent)
         is TaskStage.Transcribing -> getString(R.string.task_stage_transcribing, stage.percent)
+        is TaskStage.Translating -> getString(R.string.task_stage_translating, stage.percent)
         is TaskStage.Burning -> getString(R.string.task_stage_burning, stage.percent)
         TaskStage.Editing -> getString(R.string.task_stage_editing)
         is TaskStage.Done -> getString(R.string.task_stage_done)
@@ -195,6 +196,7 @@ class VideoProcessingService : Service() {
     private fun TaskStage.progressPercent(): Int? = when (this) {
         is TaskStage.Extracting -> percent
         is TaskStage.Transcribing -> percent
+        is TaskStage.Translating -> percent
         is TaskStage.Burning -> percent
         else -> null
     }
@@ -220,6 +222,7 @@ class VideoProcessingService : Service() {
 private fun TaskStage.isInProgress(): Boolean = when (this) {
     is TaskStage.Extracting,
     is TaskStage.Transcribing,
+    is TaskStage.Translating,
     is TaskStage.Burning,
     -> true
     else -> false

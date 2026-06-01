@@ -44,6 +44,9 @@ class SettingsDataStore(context: Context) {
     suspend fun setAlignment(alignment: SubtitleAlignment) = store.edit {
         it[KEY_ALIGNMENT] = alignment.name
     }
+    suspend fun setTranslateToChinese(enabled: Boolean) = store.edit {
+        it[KEY_TRANSLATE_ZH] = enabled
+    }
 
     private fun Preferences.toAppSettings(): AppSettings = AppSettings(
         model = readEnum(KEY_MODEL, WhisperModel.Base),
@@ -55,6 +58,7 @@ class SettingsDataStore(context: Context) {
         fontColor = readEnum(KEY_FONT_COLOR, SubtitleColor.White),
         outline = this[KEY_OUTLINE] ?: true,
         alignment = readEnum(KEY_ALIGNMENT, SubtitleAlignment.BottomCenter),
+        translateToChinese = this[KEY_TRANSLATE_ZH] ?: true,
     )
 
     private inline fun <reified T : Enum<T>> Preferences.readEnum(
@@ -74,5 +78,6 @@ class SettingsDataStore(context: Context) {
         private val KEY_FONT_COLOR = stringPreferencesKey("font_color")
         private val KEY_OUTLINE = booleanPreferencesKey("outline")
         private val KEY_ALIGNMENT = stringPreferencesKey("alignment")
+        private val KEY_TRANSLATE_ZH = booleanPreferencesKey("translate_to_chinese")
     }
 }

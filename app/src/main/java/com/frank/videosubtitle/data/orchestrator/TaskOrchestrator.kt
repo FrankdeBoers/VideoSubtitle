@@ -8,13 +8,16 @@ import com.frank.videosubtitle.data.repository.TaskRepository
 import com.frank.videosubtitle.data.source.media.MediaStoreSaver
 import com.frank.videosubtitle.domain.engine.BurnOptions
 import com.frank.videosubtitle.domain.engine.TranscribeEvent
+import com.frank.videosubtitle.domain.engine.TranslateEvent
 import com.frank.videosubtitle.domain.engine.WhisperConfig
 import com.frank.videosubtitle.domain.model.AppSettings
+import com.frank.videosubtitle.domain.model.LanguagePref
 import com.frank.videosubtitle.domain.model.TaskStage
 import com.frank.videosubtitle.domain.model.WhisperModel
 import com.frank.videosubtitle.domain.usecase.BurnSubtitlesUseCase
 import com.frank.videosubtitle.domain.usecase.ExtractAudioUseCase
 import com.frank.videosubtitle.domain.usecase.TranscribeAudioUseCase
+import com.frank.videosubtitle.domain.usecase.TranslateSubtitleUseCase
 import com.frank.videosubtitle.service.VideoProcessingService
 import com.frank.videosubtitle.util.DispatcherProvider
 import kotlinx.coroutines.CoroutineScope
@@ -43,6 +46,7 @@ class TaskOrchestrator(
     private val modelRepository: ModelRepository,
     private val extractAudio: ExtractAudioUseCase,
     private val transcribeAudio: TranscribeAudioUseCase,
+    private val translateSubtitle: TranslateSubtitleUseCase,
     private val burnSubtitles: BurnSubtitlesUseCase,
     private val mediaStoreSaver: MediaStoreSaver,
     private val settingsRepository: SettingsRepository,
@@ -60,6 +64,7 @@ class TaskOrchestrator(
 
     private companion object {
         const val DEFAULT_OUTLINE_WIDTH = 2
+        const val TARGET_LANG_CHINESE = "zh"
     }
 
     fun start(taskId: String, autoBurn: Boolean = false) {
@@ -95,7 +100,8 @@ class TaskOrchestrator(
                     return@launch
                 }
 
-                runTranscription(taskId, audioFile, srtFile, model, modelFile, settings)
+                if (!runTranscription(taskId, audioFile, srtFile, model, modelFile, settings)) return@launch
+                if (!runTranslation(taskId, srtFile, settings)) return@launch
 
                 if (autoBurn) {
                     val afterTranscribe = taskRepository.find(taskId) ?: return@launch
@@ -151,6 +157,7 @@ class TaskOrchestrator(
             when (current.stage) {
                 is TaskStage.Extracting,
                 is TaskStage.Transcribing,
+                is TaskStage.Translating,
                 is TaskStage.Burning,
                 -> taskRepository.update(current.copy(stage = TaskStage.Failed("Cancelled")))
                 else -> Unit
@@ -273,8 +280,8 @@ class TaskOrchestrator(
         model: WhisperModel,
         modelFile: File,
         settings: AppSettings,
-    ) {
-        val current = taskRepository.find(taskId) ?: return
+    ): Boolean {
+        val current = taskRepository.find(taskId) ?: return false
         taskRepository.update(current.copy(stage = TaskStage.Transcribing(0)))
 
         val config = WhisperConfig(
@@ -286,9 +293,11 @@ class TaskOrchestrator(
             nThreads = 4,
         )
 
+        var failed = false
         transcriptionGate.withLock {
             transcribeAudio(wav, srtOutput, config)
                 .catch { t ->
+                    failed = true
                     Timber.e(t, "transcribeAudio failed for %s", taskId)
                     val now = taskRepository.find(taskId) ?: current
                     if (now.stage !is TaskStage.Failed) {
@@ -299,16 +308,66 @@ class TaskOrchestrator(
                 .collect { event ->
                     val now = taskRepository.find(taskId) ?: return@collect
                     if (now.stage is TaskStage.Failed) return@collect
-                    when (event) {
-                        is TranscribeEvent.Progress -> {
-                            taskRepository.update(now.copy(stage = TaskStage.Transcribing(event.percent)))
-                        }
-                        is TranscribeEvent.Done -> {
-                            // Phase 4 (editor) will hold this state; for now mark Editing.
-                            taskRepository.update(now.copy(stage = TaskStage.Editing))
-                        }
+                    if (event is TranscribeEvent.Progress) {
+                        taskRepository.update(now.copy(stage = TaskStage.Transcribing(event.percent)))
                     }
+                    // Done is consumed by the orchestrator after the next pipeline
+                    // step (translate) decides whether to advance to Editing.
                 }
         }
+        return !failed
+    }
+
+    /**
+     * Translate [srtFile] in place into a bilingual cue list (original on top,
+     * Chinese below). Skips when the user has translation off, when the Whisper
+     * source language is already Chinese, or when the SRT is empty. Marks the
+     * task [TaskStage.Editing] on success so the user can review.
+     */
+    private suspend fun runTranslation(
+        taskId: String,
+        srtFile: File,
+        settings: AppSettings,
+    ): Boolean {
+        val current = taskRepository.find(taskId) ?: return false
+        if (!srtFile.exists() || srtFile.length() == 0L) {
+            taskRepository.update(current.copy(stage = TaskStage.Failed("Subtitle file missing after transcription")))
+            return false
+        }
+        val skip = !settings.translateToChinese ||
+            settings.language == LanguagePref.ZhCn
+        if (skip) {
+            taskRepository.update(current.copy(stage = TaskStage.Editing))
+            return true
+        }
+
+        taskRepository.update(current.copy(stage = TaskStage.Translating(0)))
+        var failed = false
+        translateSubtitle(
+            srtFile = srtFile,
+            sourceLanguage = settings.language.whisperCode,
+            targetLanguage = TARGET_LANG_CHINESE,
+        )
+            .catch { t ->
+                failed = true
+                Timber.e(t, "translateSubtitle failed for %s", taskId)
+                val now = taskRepository.find(taskId) ?: current
+                if (now.stage !is TaskStage.Failed) {
+                    taskRepository.update(now.copy(stage = TaskStage.Failed(t.message ?: t.javaClass.simpleName)))
+                }
+            }
+            .collect { event ->
+                val now = taskRepository.find(taskId) ?: return@collect
+                if (now.stage is TaskStage.Failed) return@collect
+                when (event) {
+                    is TranslateEvent.Progress -> taskRepository.update(
+                        now.copy(stage = TaskStage.Translating(event.percent)),
+                    )
+                    is TranslateEvent.Done -> taskRepository.update(
+                        now.copy(stage = TaskStage.Editing),
+                    )
+                }
+            }
+        return !failed
     }
 }

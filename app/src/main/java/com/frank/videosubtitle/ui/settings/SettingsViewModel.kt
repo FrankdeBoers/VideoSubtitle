@@ -61,6 +61,7 @@ class SettingsViewModel(
     fun setFontColor(color: SubtitleColor) = viewModelScope.launch { settings.setFontColor(color) }
     fun setOutline(enabled: Boolean) = viewModelScope.launch { settings.setOutline(enabled) }
     fun setAlignment(alignment: SubtitleAlignment) = viewModelScope.launch { settings.setAlignment(alignment) }
+    fun setTranslateToChinese(enabled: Boolean) = viewModelScope.launch { settings.setTranslateToChinese(enabled) }
 
     fun startDownload(model: WhisperModel) {
         if (downloadJobs[model]?.isActive == true) return
@@ -134,6 +135,7 @@ class SettingsViewModel(
     private fun TaskStage.isInProgress(): Boolean = when (this) {
         is TaskStage.Extracting,
         is TaskStage.Transcribing,
+        is TaskStage.Translating,
         is TaskStage.Burning,
         -> true
         else -> false

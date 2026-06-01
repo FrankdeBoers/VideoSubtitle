@@ -90,6 +90,7 @@ class TaskListAdapter(
         TaskStage.Idle -> ctx.getString(R.string.task_stage_idle)
         is TaskStage.Extracting -> ctx.getString(R.string.task_stage_extracting, stage.percent)
         is TaskStage.Transcribing -> ctx.getString(R.string.task_stage_transcribing, stage.percent)
+        is TaskStage.Translating -> ctx.getString(R.string.task_stage_translating, stage.percent)
         TaskStage.Editing -> ctx.getString(R.string.task_stage_editing)
         is TaskStage.Burning -> ctx.getString(R.string.task_stage_burning, stage.percent)
         is TaskStage.Done -> ctx.getString(R.string.task_stage_done)

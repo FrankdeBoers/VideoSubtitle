@@ -145,6 +145,11 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>(FragmentSettingsB
             viewModel.setBurnMode(if (checked) BurnMode.SOFT else BurnMode.HARD)
         }
 
+        binding.switchTranslateZh.setOnCheckedChangeListener { _, checked ->
+            if (suppressCallbacks) return@setOnCheckedChangeListener
+            viewModel.setTranslateToChinese(checked)
+        }
+
         binding.btnClearCache.setOnClickListener { confirmClearCache() }
     }
 
@@ -173,6 +178,7 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>(FragmentSettingsB
             )
             binding.switchOutline.isChecked = s.outline
             binding.switchSoft.isChecked = s.burnMode == BurnMode.SOFT
+            binding.switchTranslateZh.isChecked = s.translateToChinese
         } finally {
             suppressCallbacks = false
         }

@@ -7,6 +7,7 @@
     <string name="task_stage_idle">待处理</string>
     <string name="task_stage_extracting">音频提取中 %1$d%%</string>
     <string name="task_stage_transcribing">字幕识别中 %1$d%%</string>
+    <string name="task_stage_translating">翻译中 %1$d%%</string>
     <string name="task_stage_editing">编辑中</string>
     <string name="task_stage_burning">合成中 %1$d%%</string>
     <string name="task_stage_done">已完成</string>
@@ -94,6 +95,9 @@
     <string name="settings_model_action_download">下载</string>
     <string name="settings_model_action_cancel">取消</string>
     <string name="settings_model_action_retry">重试</string>
+    <string name="settings_section_translate">字幕翻译</string>
+    <string name="settings_translate_to_chinese">翻译为中文</string>
+    <string name="settings_translate_to_chinese_hint">识别完成后将字幕翻译为中文，原文与译文同时显示。首次使用会下载约 30 MB 的离线翻译模型。</string>
     <string name="settings_section_language">识别语言</string>
     <string name="settings_language_hint">语言</string>
     <string name="settings_lang_auto">自动检测</string>

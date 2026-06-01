@@ -18,6 +18,7 @@ data class AppSettings(
     val fontColor: SubtitleColor = SubtitleColor.White,
     val outline: Boolean = true,
     val alignment: SubtitleAlignment = SubtitleAlignment.BottomCenter,
+    val translateToChinese: Boolean = true,
 ) {
     companion object {
         const val MIN_FONT_SIZE = 18

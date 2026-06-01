@@ -22,6 +22,7 @@ interface SettingsRepository {
     suspend fun setFontColor(color: SubtitleColor)
     suspend fun setOutline(enabled: Boolean)
     suspend fun setAlignment(alignment: SubtitleAlignment)
+    suspend fun setTranslateToChinese(enabled: Boolean)
 }
 
 class DefaultSettingsRepository(
@@ -55,5 +56,8 @@ class DefaultSettingsRepository(
     }
     override suspend fun setAlignment(alignment: SubtitleAlignment) {
         dataStore.setAlignment(alignment)
+    }
+    override suspend fun setTranslateToChinese(enabled: Boolean) {
+        dataStore.setTranslateToChinese(enabled)
     }
 }

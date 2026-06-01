@@ -7,6 +7,7 @@
     <string name="task_stage_idle">Pending</string>
     <string name="task_stage_extracting">Extracting audio %1$d%%</string>
     <string name="task_stage_transcribing">Transcribing %1$d%%</string>
+    <string name="task_stage_translating">Translating %1$d%%</string>
     <string name="task_stage_editing">Editing</string>
     <string name="task_stage_burning">Burning %1$d%%</string>
     <string name="task_stage_done">Done</string>
@@ -94,6 +95,9 @@
     <string name="settings_model_action_download">Download</string>
     <string name="settings_model_action_cancel">Cancel</string>
     <string name="settings_model_action_retry">Retry</string>
+    <string name="settings_section_translate">Subtitle translation</string>
+    <string name="settings_translate_to_chinese">Translate to Chinese</string>
+    <string name="settings_translate_to_chinese_hint">After transcription, translate subtitles into Chinese and show original + Chinese together. First use downloads a ~30 MB offline model.</string>
     <string name="settings_section_language">Language</string>
     <string name="settings_language_hint">Language</string>
     <string name="settings_lang_auto">Auto-detect</string>

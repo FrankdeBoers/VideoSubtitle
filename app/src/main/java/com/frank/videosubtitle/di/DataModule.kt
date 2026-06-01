@@ -2,6 +2,7 @@ package com.frank.videosubtitle.di
 
 import androidx.room.Room
 import com.frank.videosubtitle.data.engine.FFmpegKitEngine
+import com.frank.videosubtitle.data.engine.MlKitTranslationEngine
 import com.frank.videosubtitle.data.engine.WhisperJniEngine
 import com.frank.videosubtitle.data.orchestrator.TaskOrchestrator
 import com.frank.videosubtitle.data.repository.DefaultModelRepository
@@ -17,10 +18,12 @@ import com.frank.videosubtitle.data.source.local.SettingsDataStore
 import com.frank.videosubtitle.data.source.media.MediaStoreSaver
 import com.frank.videosubtitle.data.source.media.UriResolver
 import com.frank.videosubtitle.domain.engine.FFmpegEngine
+import com.frank.videosubtitle.domain.engine.TranslationEngine
 import com.frank.videosubtitle.domain.engine.WhisperEngine
 import com.frank.videosubtitle.domain.usecase.BurnSubtitlesUseCase
 import com.frank.videosubtitle.domain.usecase.ExtractAudioUseCase
 import com.frank.videosubtitle.domain.usecase.TranscribeAudioUseCase
+import com.frank.videosubtitle.domain.usecase.TranslateSubtitleUseCase
 import kotlinx.coroutines.CoroutineScope
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.qualifier.named
@@ -45,9 +48,11 @@ val dataModule = module {
 
     single { FFmpegKitEngine() } bind FFmpegEngine::class
     single { WhisperJniEngine(get()) } bind WhisperEngine::class
+    single { MlKitTranslationEngine(get()) } bind TranslationEngine::class
 
     single { ExtractAudioUseCase(get()) }
     single { TranscribeAudioUseCase(get()) }
+    single { TranslateSubtitleUseCase(get()) }
     single { BurnSubtitlesUseCase(get()) }
 
     single { MediaStoreSaver(androidContext()) }
@@ -61,6 +66,7 @@ val dataModule = module {
             modelRepository = get(),
             extractAudio = get(),
             transcribeAudio = get(),
+            translateSubtitle = get(),
             burnSubtitles = get(),
             mediaStoreSaver = get(),
             settingsRepository = get(),

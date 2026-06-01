@@ -133,6 +133,10 @@ dependencies {
     // OkHttp — Whisper model downloads with Range request resume
     implementation(libs.okhttp)
 
+    // ML Kit Translate — on-device subtitle translation (auto → Chinese)
+    implementation(libs.mlkit.translate)
+    implementation(libs.mlkit.language.id)
+
     // DataStore (settings persistence)
     implementation(libs.androidx.datastore.preferences)
 

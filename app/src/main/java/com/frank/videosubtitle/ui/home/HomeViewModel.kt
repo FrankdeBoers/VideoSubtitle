@@ -92,6 +92,7 @@ class HomeViewModel(
                     TaskStage.Editing -> orchestrator.startBurn(id)
                     is TaskStage.Extracting,
                     is TaskStage.Transcribing,
+                    is TaskStage.Translating,
                     is TaskStage.Burning,
                     is TaskStage.Done,
                     -> Unit

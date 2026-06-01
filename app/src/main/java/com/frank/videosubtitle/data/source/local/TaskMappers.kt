@@ -8,6 +8,7 @@ internal object StageKind {
     const val IDLE = "idle"
     const val EXTRACTING = "extracting"
     const val TRANSCRIBING = "transcribing"
+    const val TRANSLATING = "translating"
     const val EDITING = "editing"
     const val BURNING = "burning"
     const val DONE = "done"
@@ -19,6 +20,7 @@ fun TaskState.toEntity(): TaskEntity {
         TaskStage.Idle -> Triple(StageKind.IDLE, 0, null)
         is TaskStage.Extracting -> Triple(StageKind.EXTRACTING, s.percent, null)
         is TaskStage.Transcribing -> Triple(StageKind.TRANSCRIBING, s.percent, null)
+        is TaskStage.Translating -> Triple(StageKind.TRANSLATING, s.percent, null)
         TaskStage.Editing -> Triple(StageKind.EDITING, 0, null)
         is TaskStage.Burning -> Triple(StageKind.BURNING, s.percent, null)
         is TaskStage.Done -> Triple(StageKind.DONE, 100, s.outputPath)
@@ -51,6 +53,7 @@ fun TaskEntity.toState(): TaskState {
         StageKind.IDLE -> TaskStage.Idle
         StageKind.EXTRACTING -> TaskStage.Extracting(stagePercent)
         StageKind.TRANSCRIBING -> TaskStage.Transcribing(stagePercent)
+        StageKind.TRANSLATING -> TaskStage.Translating(stagePercent)
         StageKind.EDITING -> TaskStage.Editing
         StageKind.BURNING -> TaskStage.Burning(stagePercent)
         StageKind.DONE -> TaskStage.Done(stageMessage.orEmpty())
