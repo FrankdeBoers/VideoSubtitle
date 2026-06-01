@@ -265,18 +265,23 @@ data class WhisperConfig(
 - `TaskOrchestrator.startBurn(taskId, options)` 使用与 `start` 相同的 `jobs` map（同一 `taskId` 不会并发）；任务序列：`Burning(0..100)` → `MediaStoreSaver.saveToMovies` → `Done(uri)` 或 `Failed(reason)`。`cancel()` 现在覆盖 `Burning` 阶段。
 - `ProgressFragment` 在 `task.stage is TaskStage.Done` 时显示 "在播放器中打开" 按钮，发出 `ACTION_VIEW` + `FLAG_GRANT_READ_URI_PERMISSION`。
 
-### 5.5 不做（v1）
-- 没有 bundle Noto Sans SC（~10MB） — 先依赖系统 `/system/fonts` 中的 CJK 字体（Pixel/常见 OEM 都自带 Noto Sans CJK）。如真机实测中文显示为方框，再补 `fontsdir=` 注入。
+### 5.5 字体目录修复（Phase 7 后回归发现并落地）✅
+- **问题**：真机实测发现硬字幕烧录后视频成功重编码但所有字幕字形渲染为空白。原因是 ffmpeg-kit-full-gpl 在 Android 上不会自动注册任何 fontconfig 字体目录，libass 找不到任何 face；同时 SRT→ASS 默认 Style 是 `Fontname=Arial`，Android 系统也没有 Arial。
+- **修复 1：`VideoSubtitleApp.onCreate`** 调用 `FFmpegKitConfig.setFontDirectoryList(this, listOf("/system/fonts"), mapOf("Arial" to "Roboto", "sans-serif" to "Roboto", "Helvetica" to "Roboto"))`，把通用名 remap 到 Android 必装的 Roboto。
+- **修复 2：`FFmpegKitEngine.buildForceStyle`** 在 ASS `force_style` 头部显式指定 `Fontname=Roboto`，保证哪怕 SRT 内嵌别名也能 hit Roboto face。
+- 这就避免了再 bundle ~10MB Noto Sans SC 的代价；中文/日韩字符依赖 `/system/fonts` 里 OEM 自带的 NotoSansCJK family（Pixel/小米/三星等大厂均有）。
+- 若后续在某些去字体精简 ROM 上中文仍渲染为方框，再 bundle NotoSansSC 到 `assets/fonts/`，把 `assets://fonts` 追加进 `setFontDirectoryList` 列表即可，不必动 force_style。
+
+### 5.6 不做（v1）
 - 用户不能选择 SOFT 模式，Phase 7 设置页接入。
 - 输出文件名固定 `${baseName}_subtitled.mp4`，未做去重，重复导出会撞名（MediaStore 行为：同名文件追加 `(1)` 后缀）。
 
 ### 验收
 - `:app:assembleDebug` ✅ / `:app:testDebugUnitTest` ✅。
-- 真机端到端验证（待执行）：硬字幕输出 mp4 在系统相册可播放、字幕可见，`ffprobe` 看不到 subtitle stream。
+- 真机端到端验证：硬字幕输出 mp4 在系统相册可播放、字幕可见（修复字体目录后），`ffprobe` 看不到 subtitle stream。
 - 中文路径与文件名通过 `escapeForSubtitlesFilter()` 处理；MediaStore RELATIVE_PATH 不依赖路径字符。
 
 ### 风险（剩余）
-- libass 字体回退：未 bundle CJK 字体，依赖 `/system/fonts`。低端定制 ROM 或国产去字体精简包可能没有，会导致中文 fallback 为方框。如出现立刻补 NotoSansSC，并把 `fontsdir=/system/fonts:assets://fonts` 加到 force_style 之前。
 - SOFT 模式没有 UI 入口；`burnSubtitles` 已支持但当前编辑器的导出按钮硬编码 `BurnOptions()` 默认（HARD）。
 - 没有磁盘空间预检查（Phase 6）。导出 1080p 长视频可能在 cacheDir 写一份 + MediaStore 再写一份 = 视频大小 × 2 占用，瞬时高峰需要注意。
 
