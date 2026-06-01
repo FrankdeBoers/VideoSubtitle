@@ -90,11 +90,16 @@ class VideoProcessingService : Service() {
 
     private fun startForegroundCompat(notification: Notification) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            // mediaProcessing was added in API 34 specifically for transcoding-style work.
+            // Android 14+ requires the type at startForeground time. We use
+            // dataSync (not mediaProcessing) because Android 16 (API 36)
+            // rejects mediaProcessing FGS starts with InvalidForegroundService-
+            // TypeException("type unknown ... has been prohibited") in many
+            // states. dataSync has the same 6h/day quota and no Android 16
+            // start-state restriction.
             startForeground(
                 NOTIF_ID,
                 notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
             )
         } else {
             startForeground(NOTIF_ID, notification)
