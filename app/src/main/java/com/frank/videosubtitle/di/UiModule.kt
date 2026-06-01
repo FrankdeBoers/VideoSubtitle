@@ -12,5 +12,5 @@ val uiModule = module {
     viewModel { HomeViewModel(get(), get(), get()) }
     viewModel { (taskId: String) -> ProgressViewModel(taskId, get(), get(), get(), get()) }
     viewModel { (taskId: String) -> EditorViewModel(taskId, get(), get(), get()) }
-    viewModel { SettingsViewModel(get(), get(), get(), androidContext().cacheDir) }
+    viewModel { SettingsViewModel(get(), get(), get(), get(), androidContext().cacheDir) }
 }

@@ -6,12 +6,19 @@ import com.frank.videosubtitle.data.repository.ModelDownloadEvent
 import com.frank.videosubtitle.data.repository.ModelRepository
 import com.frank.videosubtitle.data.repository.SettingsRepository
 import com.frank.videosubtitle.data.repository.TaskRepository
+import com.frank.videosubtitle.data.source.local.BaiduCreds
+import com.frank.videosubtitle.data.source.local.CredentialsSnapshot
+import com.frank.videosubtitle.data.source.local.MicrosoftCreds
+import com.frank.videosubtitle.data.source.local.TencentCreds
+import com.frank.videosubtitle.data.source.local.TranslationCredentialsStore
+import com.frank.videosubtitle.data.source.local.YoudaoCreds
 import com.frank.videosubtitle.domain.engine.BurnMode
 import com.frank.videosubtitle.domain.engine.SubtitleAlignment
 import com.frank.videosubtitle.domain.model.AppSettings
 import com.frank.videosubtitle.domain.model.LanguagePref
 import com.frank.videosubtitle.domain.model.SubtitleColor
 import com.frank.videosubtitle.domain.model.TaskStage
+import com.frank.videosubtitle.domain.model.TranslationProvider
 import com.frank.videosubtitle.domain.model.VideoPreset
 import com.frank.videosubtitle.domain.model.WhisperModel
 import kotlinx.coroutines.Dispatchers
@@ -35,11 +42,15 @@ class SettingsViewModel(
     private val settings: SettingsRepository,
     private val taskRepository: TaskRepository,
     private val modelRepository: ModelRepository,
+    private val credentialsStore: TranslationCredentialsStore,
     private val cacheDir: File,
 ) : ViewModel() {
 
     val state: StateFlow<AppSettings> = settings.observe()
         .stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
+
+    private val _credentials = MutableStateFlow(credentialsStore.snapshot())
+    val credentials: StateFlow<CredentialsSnapshot> = _credentials.asStateFlow()
 
     val anyTaskRunning: StateFlow<Boolean> = taskRepository.observeAll()
         .map { tasks -> tasks.any { it.stage.isInProgress() } }
@@ -62,6 +73,25 @@ class SettingsViewModel(
     fun setOutline(enabled: Boolean) = viewModelScope.launch { settings.setOutline(enabled) }
     fun setAlignment(alignment: SubtitleAlignment) = viewModelScope.launch { settings.setAlignment(alignment) }
     fun setTranslateToChinese(enabled: Boolean) = viewModelScope.launch { settings.setTranslateToChinese(enabled) }
+    fun setTranslationProvider(provider: TranslationProvider) =
+        viewModelScope.launch { settings.setTranslationProvider(provider) }
+
+    fun setBaiduCreds(creds: BaiduCreds) {
+        credentialsStore.setBaidu(creds)
+        _credentials.value = credentialsStore.snapshot()
+    }
+    fun setYoudaoCreds(creds: YoudaoCreds) {
+        credentialsStore.setYoudao(creds)
+        _credentials.value = credentialsStore.snapshot()
+    }
+    fun setTencentCreds(creds: TencentCreds) {
+        credentialsStore.setTencent(creds)
+        _credentials.value = credentialsStore.snapshot()
+    }
+    fun setMicrosoftCreds(creds: MicrosoftCreds) {
+        credentialsStore.setMicrosoft(creds)
+        _credentials.value = credentialsStore.snapshot()
+    }
 
     fun startDownload(model: WhisperModel) {
         if (downloadJobs[model]?.isActive == true) return

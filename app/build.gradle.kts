@@ -140,6 +140,9 @@ dependencies {
     // DataStore (settings persistence)
     implementation(libs.androidx.datastore.preferences)
 
+    // EncryptedSharedPreferences (translation API keys)
+    implementation(libs.androidx.security.crypto)
+
     // Logging
     implementation(libs.timber)
 

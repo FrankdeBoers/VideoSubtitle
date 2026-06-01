@@ -6,6 +6,7 @@ import com.frank.videosubtitle.domain.engine.SubtitleAlignment
 import com.frank.videosubtitle.domain.model.AppSettings
 import com.frank.videosubtitle.domain.model.LanguagePref
 import com.frank.videosubtitle.domain.model.SubtitleColor
+import com.frank.videosubtitle.domain.model.TranslationProvider
 import com.frank.videosubtitle.domain.model.VideoPreset
 import com.frank.videosubtitle.domain.model.WhisperModel
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +24,7 @@ interface SettingsRepository {
     suspend fun setOutline(enabled: Boolean)
     suspend fun setAlignment(alignment: SubtitleAlignment)
     suspend fun setTranslateToChinese(enabled: Boolean)
+    suspend fun setTranslationProvider(provider: TranslationProvider)
 }
 
 class DefaultSettingsRepository(
@@ -59,5 +61,8 @@ class DefaultSettingsRepository(
     }
     override suspend fun setTranslateToChinese(enabled: Boolean) {
         dataStore.setTranslateToChinese(enabled)
+    }
+    override suspend fun setTranslationProvider(provider: TranslationProvider) {
+        dataStore.setTranslationProvider(provider)
     }
 }

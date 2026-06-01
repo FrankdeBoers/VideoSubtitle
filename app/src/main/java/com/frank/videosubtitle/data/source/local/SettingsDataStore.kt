@@ -13,6 +13,7 @@ import com.frank.videosubtitle.domain.engine.SubtitleAlignment
 import com.frank.videosubtitle.domain.model.AppSettings
 import com.frank.videosubtitle.domain.model.LanguagePref
 import com.frank.videosubtitle.domain.model.SubtitleColor
+import com.frank.videosubtitle.domain.model.TranslationProvider
 import com.frank.videosubtitle.domain.model.VideoPreset
 import com.frank.videosubtitle.domain.model.WhisperModel
 import kotlinx.coroutines.flow.Flow
@@ -47,6 +48,9 @@ class SettingsDataStore(context: Context) {
     suspend fun setTranslateToChinese(enabled: Boolean) = store.edit {
         it[KEY_TRANSLATE_ZH] = enabled
     }
+    suspend fun setTranslationProvider(provider: TranslationProvider) = store.edit {
+        it[KEY_TRANSLATION_PROVIDER] = provider.name
+    }
 
     private fun Preferences.toAppSettings(): AppSettings = AppSettings(
         model = readEnum(KEY_MODEL, WhisperModel.Base),
@@ -59,6 +63,7 @@ class SettingsDataStore(context: Context) {
         outline = this[KEY_OUTLINE] ?: true,
         alignment = readEnum(KEY_ALIGNMENT, SubtitleAlignment.BottomCenter),
         translateToChinese = this[KEY_TRANSLATE_ZH] ?: true,
+        translationProvider = readEnum(KEY_TRANSLATION_PROVIDER, TranslationProvider.MlKit),
     )
 
     private inline fun <reified T : Enum<T>> Preferences.readEnum(
@@ -79,5 +84,6 @@ class SettingsDataStore(context: Context) {
         private val KEY_OUTLINE = booleanPreferencesKey("outline")
         private val KEY_ALIGNMENT = stringPreferencesKey("alignment")
         private val KEY_TRANSLATE_ZH = booleanPreferencesKey("translate_to_chinese")
+        private val KEY_TRANSLATION_PROVIDER = stringPreferencesKey("translation_provider")
     }
 }

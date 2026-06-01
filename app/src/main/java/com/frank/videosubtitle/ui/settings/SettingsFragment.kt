@@ -9,6 +9,12 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.frank.videosubtitle.R
+import com.frank.videosubtitle.data.source.local.BaiduCreds
+import com.frank.videosubtitle.data.source.local.CredentialsSnapshot
+import com.frank.videosubtitle.data.source.local.MicrosoftCreds
+import com.frank.videosubtitle.data.source.local.TencentCreds
+import com.frank.videosubtitle.data.source.local.TranslationCredentialsStore
+import com.frank.videosubtitle.data.source.local.YoudaoCreds
 import com.frank.videosubtitle.databinding.FragmentSettingsBinding
 import com.frank.videosubtitle.databinding.ItemModelCardBinding
 import com.frank.videosubtitle.domain.engine.BurnMode
@@ -16,6 +22,7 @@ import com.frank.videosubtitle.domain.engine.SubtitleAlignment
 import com.frank.videosubtitle.domain.model.AppSettings
 import com.frank.videosubtitle.domain.model.LanguagePref
 import com.frank.videosubtitle.domain.model.SubtitleColor
+import com.frank.videosubtitle.domain.model.TranslationProvider
 import com.frank.videosubtitle.domain.model.VideoPreset
 import com.frank.videosubtitle.domain.model.WhisperModel
 import com.frank.videosubtitle.ui.common.BaseFragment
@@ -49,6 +56,7 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>(FragmentSettingsB
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { viewModel.state.collect { render(it) } }
                 launch { viewModel.modelStatus.collect { renderModelStatus(it) } }
+                launch { viewModel.credentials.collect { renderCredentials(it) } }
                 launch { viewModel.anyTaskRunning.collect { running ->
                     binding.btnClearCache.isEnabled = !running
                 } }
@@ -74,6 +82,9 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>(FragmentSettingsB
             getString(R.string.settings_preset_slow),
         )
         binding.dropdownPreset.setSimpleItems(presetLabels.toTypedArray())
+
+        val providerLabels = TranslationProvider.entries.map { providerLabel(it) }.toTypedArray()
+        binding.dropdownProvider.setSimpleItems(providerLabels)
     }
 
     private fun wireListeners() {
@@ -150,7 +161,83 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>(FragmentSettingsB
             viewModel.setTranslateToChinese(checked)
         }
 
+        binding.dropdownProvider.setOnItemClickListener { _, _, position, _ ->
+            if (suppressCallbacks) return@setOnItemClickListener
+            val choice = TranslationProvider.entries.getOrNull(position) ?: return@setOnItemClickListener
+            viewModel.setTranslationProvider(choice)
+        }
+
+        wireCredentialFields()
+
         binding.btnClearCache.setOnClickListener { confirmClearCache() }
+    }
+
+    private fun wireCredentialFields() {
+        binding.editBaiduAppid.onFocusLostSaveBaidu()
+        binding.editBaiduSecret.onFocusLostSaveBaidu()
+
+        binding.editYoudaoAppkey.onFocusLostSaveYoudao()
+        binding.editYoudaoAppsecret.onFocusLostSaveYoudao()
+
+        binding.editTencentSecretid.onFocusLostSaveTencent()
+        binding.editTencentSecretkey.onFocusLostSaveTencent()
+        binding.editTencentRegion.onFocusLostSaveTencent()
+
+        binding.editMicrosoftKey.onFocusLostSaveMicrosoft()
+        binding.editMicrosoftRegion.onFocusLostSaveMicrosoft()
+    }
+
+    private fun android.widget.EditText.onFocusLostSaveBaidu() {
+        setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus || suppressCallbacks) return@setOnFocusChangeListener
+            viewModel.setBaiduCreds(
+                BaiduCreds(
+                    appId = binding.editBaiduAppid.text?.toString().orEmpty(),
+                    secret = binding.editBaiduSecret.text?.toString().orEmpty(),
+                ),
+            )
+        }
+    }
+
+    private fun android.widget.EditText.onFocusLostSaveYoudao() {
+        setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus || suppressCallbacks) return@setOnFocusChangeListener
+            viewModel.setYoudaoCreds(
+                YoudaoCreds(
+                    appKey = binding.editYoudaoAppkey.text?.toString().orEmpty(),
+                    appSecret = binding.editYoudaoAppsecret.text?.toString().orEmpty(),
+                ),
+            )
+        }
+    }
+
+    private fun android.widget.EditText.onFocusLostSaveTencent() {
+        setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus || suppressCallbacks) return@setOnFocusChangeListener
+            val region = binding.editTencentRegion.text?.toString().orEmpty()
+                .ifBlank { TranslationCredentialsStore.TENCENT_DEFAULT_REGION }
+            viewModel.setTencentCreds(
+                TencentCreds(
+                    secretId = binding.editTencentSecretid.text?.toString().orEmpty(),
+                    secretKey = binding.editTencentSecretkey.text?.toString().orEmpty(),
+                    region = region,
+                ),
+            )
+        }
+    }
+
+    private fun android.widget.EditText.onFocusLostSaveMicrosoft() {
+        setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus || suppressCallbacks) return@setOnFocusChangeListener
+            val region = binding.editMicrosoftRegion.text?.toString().orEmpty()
+                .ifBlank { TranslationCredentialsStore.MS_DEFAULT_REGION }
+            viewModel.setMicrosoftCreds(
+                MicrosoftCreds(
+                    key = binding.editMicrosoftKey.text?.toString().orEmpty(),
+                    region = region,
+                ),
+            )
+        }
     }
 
     private fun render(s: AppSettings) {
@@ -179,9 +266,65 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>(FragmentSettingsB
             binding.switchOutline.isChecked = s.outline
             binding.switchSoft.isChecked = s.burnMode == BurnMode.SOFT
             binding.switchTranslateZh.isChecked = s.translateToChinese
+
+            binding.dropdownProvider.setText(providerLabel(s.translationProvider), false)
+            binding.dropdownProviderLayout.isEnabled = s.translateToChinese
+            binding.dropdownProvider.isEnabled = s.translateToChinese
+            binding.textProviderHint.setText(providerHintRes(s.translationProvider))
+            binding.groupBaidu.isVisible =
+                s.translateToChinese && s.translationProvider == TranslationProvider.Baidu
+            binding.groupYoudao.isVisible =
+                s.translateToChinese && s.translationProvider == TranslationProvider.Youdao
+            binding.groupTencent.isVisible =
+                s.translateToChinese && s.translationProvider == TranslationProvider.Tencent
+            binding.groupMicrosoft.isVisible =
+                s.translateToChinese && s.translationProvider == TranslationProvider.Microsoft
         } finally {
             suppressCallbacks = false
         }
+    }
+
+    private fun renderCredentials(snap: CredentialsSnapshot) {
+        suppressCallbacks = true
+        try {
+            snap.baidu?.let {
+                if (!binding.editBaiduAppid.hasFocus()) binding.editBaiduAppid.setText(it.appId)
+                if (!binding.editBaiduSecret.hasFocus()) binding.editBaiduSecret.setText(it.secret)
+            }
+            snap.youdao?.let {
+                if (!binding.editYoudaoAppkey.hasFocus()) binding.editYoudaoAppkey.setText(it.appKey)
+                if (!binding.editYoudaoAppsecret.hasFocus()) binding.editYoudaoAppsecret.setText(it.appSecret)
+            }
+            snap.tencent?.let {
+                if (!binding.editTencentSecretid.hasFocus()) binding.editTencentSecretid.setText(it.secretId)
+                if (!binding.editTencentSecretkey.hasFocus()) binding.editTencentSecretkey.setText(it.secretKey)
+                if (!binding.editTencentRegion.hasFocus()) binding.editTencentRegion.setText(it.region)
+            }
+            snap.microsoft?.let {
+                if (!binding.editMicrosoftKey.hasFocus()) binding.editMicrosoftKey.setText(it.key)
+                if (!binding.editMicrosoftRegion.hasFocus()) binding.editMicrosoftRegion.setText(it.region)
+            }
+        } finally {
+            suppressCallbacks = false
+        }
+    }
+
+    private fun providerLabel(provider: TranslationProvider): String = getString(
+        when (provider) {
+            TranslationProvider.MlKit -> R.string.settings_translate_provider_mlkit
+            TranslationProvider.Baidu -> R.string.settings_translate_provider_baidu
+            TranslationProvider.Youdao -> R.string.settings_translate_provider_youdao
+            TranslationProvider.Tencent -> R.string.settings_translate_provider_tencent
+            TranslationProvider.Microsoft -> R.string.settings_translate_provider_microsoft
+        },
+    )
+
+    private fun providerHintRes(provider: TranslationProvider): Int = when (provider) {
+        TranslationProvider.MlKit -> R.string.settings_translate_provider_mlkit_hint
+        TranslationProvider.Baidu -> R.string.settings_translate_provider_baidu_hint
+        TranslationProvider.Youdao -> R.string.settings_translate_provider_youdao_hint
+        TranslationProvider.Tencent -> R.string.settings_translate_provider_tencent_hint
+        TranslationProvider.Microsoft -> R.string.settings_translate_provider_microsoft_hint
     }
 
     private fun renderModelStatus(map: Map<WhisperModel, ModelCardStatus>) {
