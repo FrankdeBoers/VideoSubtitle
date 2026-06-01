@@ -26,347 +26,37 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="16dp"
-            android:paddingVertical="12dp">
+            android:paddingVertical="8dp">
 
-            <!-- Section: Model -->
             <TextView
-                style="@style/SettingsSectionHeader"
+                android:id="@+id/row_model"
+                style="@style/SettingsIndexRow"
                 android:text="@string/settings_section_model" />
 
-            <include
-                android:id="@+id/card_tiny"
-                layout="@layout/item_model_card" />
-
-            <include
-                android:id="@+id/card_base"
-                layout="@layout/item_model_card" />
-
-            <include
-                android:id="@+id/card_small"
-                layout="@layout/item_model_card" />
-
-            <!-- Section: Translation -->
             <TextView
-                style="@style/SettingsSectionHeader"
+                android:id="@+id/row_translate"
+                style="@style/SettingsIndexRow"
                 android:text="@string/settings_section_translate" />
 
-            <com.google.android.material.materialswitch.MaterialSwitch
-                android:id="@+id/switch_translate_zh"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/settings_translate_to_chinese" />
             <TextView
-                style="@style/SettingsHint"
-                android:text="@string/settings_translate_to_chinese_hint" />
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/dropdown_provider_layout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:hint="@string/settings_translate_provider_label"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
-                <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                    android:id="@+id/dropdown_provider"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:editable="false"
-                    android:inputType="none" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <TextView
-                android:id="@+id/text_provider_hint"
-                style="@style/SettingsHint"
-                android:text="@string/settings_translate_provider_mlkit_hint" />
-
-            <!-- Baidu credentials -->
-            <LinearLayout
-                android:id="@+id/group_baidu"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="@string/settings_translate_baidu_appid">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/edit_baidu_appid"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="text"
-                        android:maxLines="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="@string/settings_translate_baidu_secret"
-                    app:passwordToggleEnabled="true">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/edit_baidu_secret"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="textPassword"
-                        android:maxLines="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-            </LinearLayout>
-
-            <!-- Youdao credentials -->
-            <LinearLayout
-                android:id="@+id/group_youdao"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="@string/settings_translate_youdao_appkey">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/edit_youdao_appkey"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="text"
-                        android:maxLines="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="@string/settings_translate_youdao_appsecret"
-                    app:passwordToggleEnabled="true">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/edit_youdao_appsecret"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="textPassword"
-                        android:maxLines="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-            </LinearLayout>
-
-            <!-- Tencent credentials -->
-            <LinearLayout
-                android:id="@+id/group_tencent"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="@string/settings_translate_tencent_secretid">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/edit_tencent_secretid"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="text"
-                        android:maxLines="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="@string/settings_translate_tencent_secretkey"
-                    app:passwordToggleEnabled="true">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/edit_tencent_secretkey"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="textPassword"
-                        android:maxLines="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="@string/settings_translate_tencent_region">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/edit_tencent_region"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="text"
-                        android:maxLines="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-            </LinearLayout>
-
-            <!-- Microsoft credentials -->
-            <LinearLayout
-                android:id="@+id/group_microsoft"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="@string/settings_translate_microsoft_key"
-                    app:passwordToggleEnabled="true">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/edit_microsoft_key"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="textPassword"
-                        android:maxLines="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="@string/settings_translate_microsoft_region">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/edit_microsoft_region"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="text"
-                        android:maxLines="1" />
-                </com.google.android.material.textfield.TextInputLayout>
-            </LinearLayout>
-
-            <!-- Section: Language -->
-            <TextView
-                style="@style/SettingsSectionHeader"
+                android:id="@+id/row_language"
+                style="@style/SettingsIndexRow"
                 android:text="@string/settings_section_language" />
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/settings_language_hint"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
-                <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                    android:id="@+id/dropdown_language"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:editable="false"
-                    android:inputType="none" />
-            </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Section: Subtitle style -->
             <TextView
-                style="@style/SettingsSectionHeader"
+                android:id="@+id/row_style"
+                style="@style/SettingsIndexRow"
                 android:text="@string/settings_section_style" />
 
             <TextView
-                style="@style/SettingsLabel"
-                android:text="@string/settings_font_size" />
-            <com.google.android.material.slider.Slider
-                android:id="@+id/slider_font_size"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:stepSize="1"
-                android:valueFrom="18"
-                android:valueTo="40" />
-
-            <TextView
-                style="@style/SettingsLabel"
-                android:text="@string/settings_font_color" />
-            <com.google.android.material.button.MaterialButtonToggleGroup
-                android:id="@+id/group_color"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:singleSelection="true"
-                app:selectionRequired="true">
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/color_white"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/settings_color_white" />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/color_yellow"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/settings_color_yellow" />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/color_green"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/settings_color_green" />
-            </com.google.android.material.button.MaterialButtonToggleGroup>
-
-            <TextView
-                style="@style/SettingsLabel"
-                android:text="@string/settings_alignment" />
-            <com.google.android.material.button.MaterialButtonToggleGroup
-                android:id="@+id/group_alignment"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:singleSelection="true"
-                app:selectionRequired="true">
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/align_bottom"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/settings_align_bottom" />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/align_top"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/settings_align_top" />
-            </com.google.android.material.button.MaterialButtonToggleGroup>
-
-            <com.google.android.material.materialswitch.MaterialSwitch
-                android:id="@+id/switch_outline"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/settings_outline" />
-
-            <!-- Section: Output quality -->
-            <TextView
-                style="@style/SettingsSectionHeader"
+                android:id="@+id/row_output"
+                style="@style/SettingsIndexRow"
                 android:text="@string/settings_section_output" />
 
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/settings_preset_hint"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
-                <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                    android:id="@+id/dropdown_preset"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:editable="false"
-                    android:inputType="none" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.materialswitch.MaterialSwitch
-                android:id="@+id/switch_soft"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/settings_soft_subtitles" />
             <TextView
-                style="@style/SettingsHint"
-                android:text="@string/settings_soft_subtitles_hint" />
-
-            <!-- Section: Cache -->
-            <TextView
-                style="@style/SettingsSectionHeader"
+                android:id="@+id/row_cache"
+                style="@style/SettingsIndexRow"
                 android:text="@string/settings_section_cache" />
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_clear_cache"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/settings_clear_cache" />
-            <TextView
-                android:id="@+id/text_cache_hint"
-                style="@style/SettingsHint"
-                android:text="@string/settings_clear_cache_hint" />
         </LinearLayout>
 
     </androidx.core.widget.NestedScrollView>

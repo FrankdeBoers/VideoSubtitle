@@ -22,7 +22,62 @@
         android:id="@+id/settingsFragment"
         android:name="com.frank.videosubtitle.ui.settings.SettingsFragment"
         android:label="@string/settings_title"
-        tools:layout="@layout/fragment_settings" />
+        tools:layout="@layout/fragment_settings">
+        <action
+            android:id="@+id/action_settings_to_model"
+            app:destination="@id/settingsModelFragment" />
+        <action
+            android:id="@+id/action_settings_to_translate"
+            app:destination="@id/settingsTranslateFragment" />
+        <action
+            android:id="@+id/action_settings_to_language"
+            app:destination="@id/settingsLanguageFragment" />
+        <action
+            android:id="@+id/action_settings_to_style"
+            app:destination="@id/settingsStyleFragment" />
+        <action
+            android:id="@+id/action_settings_to_output"
+            app:destination="@id/settingsOutputFragment" />
+        <action
+            android:id="@+id/action_settings_to_cache"
+            app:destination="@id/settingsCacheFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/settingsModelFragment"
+        android:name="com.frank.videosubtitle.ui.settings.SettingsModelFragment"
+        android:label="@string/settings_section_model"
+        tools:layout="@layout/fragment_settings_model" />
+
+    <fragment
+        android:id="@+id/settingsTranslateFragment"
+        android:name="com.frank.videosubtitle.ui.settings.SettingsTranslateFragment"
+        android:label="@string/settings_section_translate"
+        tools:layout="@layout/fragment_settings_translate" />
+
+    <fragment
+        android:id="@+id/settingsLanguageFragment"
+        android:name="com.frank.videosubtitle.ui.settings.SettingsLanguageFragment"
+        android:label="@string/settings_section_language"
+        tools:layout="@layout/fragment_settings_language" />
+
+    <fragment
+        android:id="@+id/settingsStyleFragment"
+        android:name="com.frank.videosubtitle.ui.settings.SettingsStyleFragment"
+        android:label="@string/settings_section_style"
+        tools:layout="@layout/fragment_settings_style" />
+
+    <fragment
+        android:id="@+id/settingsOutputFragment"
+        android:name="com.frank.videosubtitle.ui.settings.SettingsOutputFragment"
+        android:label="@string/settings_section_output"
+        tools:layout="@layout/fragment_settings_output" />
+
+    <fragment
+        android:id="@+id/settingsCacheFragment"
+        android:name="com.frank.videosubtitle.ui.settings.SettingsCacheFragment"
+        android:label="@string/settings_section_cache"
+        tools:layout="@layout/fragment_settings_cache" />
 
     <fragment
         android:id="@+id/progressFragment"
