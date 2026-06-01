@@ -17,7 +17,14 @@ data class AppSettings(
     val fontSize: Int = DEFAULT_FONT_SIZE,
     val fontColor: SubtitleColor = SubtitleColor.White,
     val outline: Boolean = true,
+    val fontSizeTranslated: Int = DEFAULT_FONT_SIZE,
+    val fontColorTranslated: SubtitleColor = SubtitleColor.Yellow,
+    val outlineTranslated: Boolean = true,
     val alignment: SubtitleAlignment = SubtitleAlignment.BottomCenter,
+    val marginV: Int = DEFAULT_MARGIN_V,
+    val marginH: Int = 0,
+    val background: Boolean = false,
+    val backgroundOpacity: Int = DEFAULT_BG_OPACITY,
     val translateToChinese: Boolean = true,
     val translationProvider: TranslationProvider = TranslationProvider.MlKit,
 ) {
@@ -25,6 +32,14 @@ data class AppSettings(
         const val MIN_FONT_SIZE = 18
         const val MAX_FONT_SIZE = 40
         const val DEFAULT_FONT_SIZE = 24
+        const val MIN_MARGIN_V = 0
+        const val MAX_MARGIN_V = 200
+        const val DEFAULT_MARGIN_V = 24
+        const val MIN_MARGIN_H = -200
+        const val MAX_MARGIN_H = 200
+        const val MIN_BG_OPACITY = 0
+        const val MAX_BG_OPACITY = 100
+        const val DEFAULT_BG_OPACITY = 50
     }
 }
 

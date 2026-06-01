@@ -137,6 +137,16 @@
     <string name="settings_align_bottom">Bottom</string>
     <string name="settings_align_top">Top</string>
     <string name="settings_outline">Show outline</string>
+    <string name="settings_style_preview_main">Original subtitle preview</string>
+    <string name="settings_style_preview_translated">Translated subtitle preview</string>
+    <string name="settings_style_section_main">Original</string>
+    <string name="settings_style_section_translated">Translated</string>
+    <string name="settings_style_section_position">Position offset</string>
+    <string name="settings_style_section_background">Background</string>
+    <string name="settings_margin_v">Vertical offset %1$d</string>
+    <string name="settings_margin_h">Horizontal offset %1$d</string>
+    <string name="settings_background_enable">Show background box</string>
+    <string name="settings_background_opacity">Background opacity %1$d%%</string>
     <string name="settings_section_output">Output quality</string>
     <string name="settings_preset_hint">Encoding preset</string>
     <string name="settings_preset_ultrafast">Ultrafast</string>

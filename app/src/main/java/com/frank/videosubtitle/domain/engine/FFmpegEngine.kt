@@ -27,7 +27,17 @@ data class BurnOptions(
     val fontColorArgb: Int = 0xFFFFFFFF.toInt(),
     val outlineColorArgb: Int = 0xFF000000.toInt(),
     val outlineWidth: Int = 2,
+    /** Per-line overrides for the translated (second) cue line. Null = use main style. */
+    val fontSizeTranslated: Int? = null,
+    val fontColorTranslatedArgb: Int? = null,
+    val outlineWidthTranslated: Int? = null,
     val alignment: SubtitleAlignment = SubtitleAlignment.BottomCenter,
+    val marginV: Int = 24,
+    val marginH: Int = 0,
+    /** When true, libass renders an opaque box behind the text (BorderStyle=3). */
+    val background: Boolean = false,
+    /** 0..255 — alpha for the background box (0=transparent, 255=opaque). */
+    val backgroundAlpha: Int = 128,
 )
 
 interface FFmpegEngine {

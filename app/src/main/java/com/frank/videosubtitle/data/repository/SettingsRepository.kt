@@ -22,7 +22,14 @@ interface SettingsRepository {
     suspend fun setFontSize(size: Int)
     suspend fun setFontColor(color: SubtitleColor)
     suspend fun setOutline(enabled: Boolean)
+    suspend fun setFontSizeTranslated(size: Int)
+    suspend fun setFontColorTranslated(color: SubtitleColor)
+    suspend fun setOutlineTranslated(enabled: Boolean)
     suspend fun setAlignment(alignment: SubtitleAlignment)
+    suspend fun setMarginV(value: Int)
+    suspend fun setMarginH(value: Int)
+    suspend fun setBackground(enabled: Boolean)
+    suspend fun setBackgroundOpacity(value: Int)
     suspend fun setTranslateToChinese(enabled: Boolean)
     suspend fun setTranslationProvider(provider: TranslationProvider)
 }
@@ -56,8 +63,29 @@ class DefaultSettingsRepository(
     override suspend fun setOutline(enabled: Boolean) {
         dataStore.setOutline(enabled)
     }
+    override suspend fun setFontSizeTranslated(size: Int) {
+        dataStore.setFontSizeTranslated(size)
+    }
+    override suspend fun setFontColorTranslated(color: SubtitleColor) {
+        dataStore.setFontColorTranslated(color)
+    }
+    override suspend fun setOutlineTranslated(enabled: Boolean) {
+        dataStore.setOutlineTranslated(enabled)
+    }
     override suspend fun setAlignment(alignment: SubtitleAlignment) {
         dataStore.setAlignment(alignment)
+    }
+    override suspend fun setMarginV(value: Int) {
+        dataStore.setMarginV(value)
+    }
+    override suspend fun setMarginH(value: Int) {
+        dataStore.setMarginH(value)
+    }
+    override suspend fun setBackground(enabled: Boolean) {
+        dataStore.setBackground(enabled)
+    }
+    override suspend fun setBackgroundOpacity(value: Int) {
+        dataStore.setBackgroundOpacity(value)
     }
     override suspend fun setTranslateToChinese(enabled: Boolean) {
         dataStore.setTranslateToChinese(enabled)

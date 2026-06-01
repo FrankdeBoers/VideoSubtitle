@@ -42,8 +42,25 @@ class SettingsDataStore(context: Context) {
     }
     suspend fun setFontColor(color: SubtitleColor) = store.edit { it[KEY_FONT_COLOR] = color.name }
     suspend fun setOutline(enabled: Boolean) = store.edit { it[KEY_OUTLINE] = enabled }
+    suspend fun setFontSizeTranslated(size: Int) = store.edit {
+        it[KEY_FONT_SIZE_TR] = size.coerceIn(AppSettings.MIN_FONT_SIZE, AppSettings.MAX_FONT_SIZE)
+    }
+    suspend fun setFontColorTranslated(color: SubtitleColor) = store.edit {
+        it[KEY_FONT_COLOR_TR] = color.name
+    }
+    suspend fun setOutlineTranslated(enabled: Boolean) = store.edit { it[KEY_OUTLINE_TR] = enabled }
     suspend fun setAlignment(alignment: SubtitleAlignment) = store.edit {
         it[KEY_ALIGNMENT] = alignment.name
+    }
+    suspend fun setMarginV(value: Int) = store.edit {
+        it[KEY_MARGIN_V] = value.coerceIn(AppSettings.MIN_MARGIN_V, AppSettings.MAX_MARGIN_V)
+    }
+    suspend fun setMarginH(value: Int) = store.edit {
+        it[KEY_MARGIN_H] = value.coerceIn(AppSettings.MIN_MARGIN_H, AppSettings.MAX_MARGIN_H)
+    }
+    suspend fun setBackground(enabled: Boolean) = store.edit { it[KEY_BACKGROUND] = enabled }
+    suspend fun setBackgroundOpacity(value: Int) = store.edit {
+        it[KEY_BG_OPACITY] = value.coerceIn(AppSettings.MIN_BG_OPACITY, AppSettings.MAX_BG_OPACITY)
     }
     suspend fun setTranslateToChinese(enabled: Boolean) = store.edit {
         it[KEY_TRANSLATE_ZH] = enabled
@@ -61,7 +78,18 @@ class SettingsDataStore(context: Context) {
             .coerceIn(AppSettings.MIN_FONT_SIZE, AppSettings.MAX_FONT_SIZE),
         fontColor = readEnum(KEY_FONT_COLOR, SubtitleColor.White),
         outline = this[KEY_OUTLINE] ?: true,
+        fontSizeTranslated = (this[KEY_FONT_SIZE_TR] ?: AppSettings.DEFAULT_FONT_SIZE)
+            .coerceIn(AppSettings.MIN_FONT_SIZE, AppSettings.MAX_FONT_SIZE),
+        fontColorTranslated = readEnum(KEY_FONT_COLOR_TR, SubtitleColor.Yellow),
+        outlineTranslated = this[KEY_OUTLINE_TR] ?: true,
         alignment = readEnum(KEY_ALIGNMENT, SubtitleAlignment.BottomCenter),
+        marginV = (this[KEY_MARGIN_V] ?: AppSettings.DEFAULT_MARGIN_V)
+            .coerceIn(AppSettings.MIN_MARGIN_V, AppSettings.MAX_MARGIN_V),
+        marginH = (this[KEY_MARGIN_H] ?: 0)
+            .coerceIn(AppSettings.MIN_MARGIN_H, AppSettings.MAX_MARGIN_H),
+        background = this[KEY_BACKGROUND] ?: false,
+        backgroundOpacity = (this[KEY_BG_OPACITY] ?: AppSettings.DEFAULT_BG_OPACITY)
+            .coerceIn(AppSettings.MIN_BG_OPACITY, AppSettings.MAX_BG_OPACITY),
         translateToChinese = this[KEY_TRANSLATE_ZH] ?: true,
         translationProvider = readEnum(KEY_TRANSLATION_PROVIDER, TranslationProvider.MlKit),
     )
@@ -82,7 +110,14 @@ class SettingsDataStore(context: Context) {
         private val KEY_FONT_SIZE = intPreferencesKey("font_size")
         private val KEY_FONT_COLOR = stringPreferencesKey("font_color")
         private val KEY_OUTLINE = booleanPreferencesKey("outline")
+        private val KEY_FONT_SIZE_TR = intPreferencesKey("font_size_translated")
+        private val KEY_FONT_COLOR_TR = stringPreferencesKey("font_color_translated")
+        private val KEY_OUTLINE_TR = booleanPreferencesKey("outline_translated")
         private val KEY_ALIGNMENT = stringPreferencesKey("alignment")
+        private val KEY_MARGIN_V = intPreferencesKey("margin_v")
+        private val KEY_MARGIN_H = intPreferencesKey("margin_h")
+        private val KEY_BACKGROUND = booleanPreferencesKey("background")
+        private val KEY_BG_OPACITY = intPreferencesKey("background_opacity")
         private val KEY_TRANSLATE_ZH = booleanPreferencesKey("translate_to_chinese")
         private val KEY_TRANSLATION_PROVIDER = stringPreferencesKey("translation_provider")
     }

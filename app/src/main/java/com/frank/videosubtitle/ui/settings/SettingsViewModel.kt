@@ -71,7 +71,16 @@ class SettingsViewModel(
     fun setFontSize(size: Int) = viewModelScope.launch { settings.setFontSize(size) }
     fun setFontColor(color: SubtitleColor) = viewModelScope.launch { settings.setFontColor(color) }
     fun setOutline(enabled: Boolean) = viewModelScope.launch { settings.setOutline(enabled) }
+    fun setFontSizeTranslated(size: Int) = viewModelScope.launch { settings.setFontSizeTranslated(size) }
+    fun setFontColorTranslated(color: SubtitleColor) =
+        viewModelScope.launch { settings.setFontColorTranslated(color) }
+    fun setOutlineTranslated(enabled: Boolean) =
+        viewModelScope.launch { settings.setOutlineTranslated(enabled) }
     fun setAlignment(alignment: SubtitleAlignment) = viewModelScope.launch { settings.setAlignment(alignment) }
+    fun setMarginV(value: Int) = viewModelScope.launch { settings.setMarginV(value) }
+    fun setMarginH(value: Int) = viewModelScope.launch { settings.setMarginH(value) }
+    fun setBackground(enabled: Boolean) = viewModelScope.launch { settings.setBackground(enabled) }
+    fun setBackgroundOpacity(value: Int) = viewModelScope.launch { settings.setBackgroundOpacity(value) }
     fun setTranslateToChinese(enabled: Boolean) = viewModelScope.launch { settings.setTranslateToChinese(enabled) }
     fun setTranslationProvider(provider: TranslationProvider) =
         viewModelScope.launch { settings.setTranslationProvider(provider) }

@@ -63,8 +63,14 @@ class FFmpegKitEngine : FFmpegEngine {
         // copy the SRT to an ASCII-only path under the task dir so we only
         // need the lavfi level of escaping below. The cache dir is ASCII by
         // construction (UUID-based) so this is cheap belt-and-braces.
+        // If the user has configured a distinct translated-line style, rewrite
+        // the SRT in place with ASS inline overrides on the second line of each
+        // cue (libass parses `{\...}` tags inside SRT text). The on-disk
+        // subtitle.srt is left untouched — editor opens the original.
         val safeSrt = File(output.parentFile ?: srt.parentFile, "subs.srt")
-        if (safeSrt.absolutePath != srt.absolutePath) {
+        if (options.mode == BurnMode.HARD && hasTranslatedOverrides(options)) {
+            writeStyledBilingualSrt(srt, safeSrt, options)
+        } else if (safeSrt.absolutePath != srt.absolutePath) {
             srt.copyTo(safeSrt, overwrite = true)
         }
 
@@ -126,15 +132,76 @@ class FFmpegKitEngine : FFmpegEngine {
         // ASS uses &HAABBGGRR with alpha inverted: 00=opaque, FF=transparent.
         val primary = argbToAssBgr(o.fontColorArgb)
         val outline = argbToAssBgr(o.outlineColorArgb)
-        return listOf(
+        // BorderStyle=1 → outline only. BorderStyle=3 → outline + opaque box
+        // whose color is BackColour. Use BackColour to express the user-chosen
+        // background opacity (alpha is inverted in ASS: 00=opaque, FF=clear).
+        val borderStyle = if (o.background) 3 else 1
+        val parts = mutableListOf(
             "Fontsize=${o.fontSize}",
             "PrimaryColour=$primary",
             "OutlineColour=$outline",
             "Outline=${o.outlineWidth}",
-            "BorderStyle=1",
+            "BorderStyle=$borderStyle",
             "Alignment=${o.alignment.assValue}",
-            "MarginV=24",
-        ).joinToString(",")
+            "MarginV=${o.marginV}",
+            "MarginL=${maxOf(0, o.marginH)}",
+            "MarginR=${maxOf(0, -o.marginH)}",
+        )
+        if (o.background) {
+            val bgArgb = (o.backgroundAlpha.coerceIn(0, 255) shl 24) // black box
+            parts += "BackColour=${argbToAssBgr(bgArgb)}"
+        }
+        return parts.joinToString(",")
+    }
+
+    private fun hasTranslatedOverrides(o: BurnOptions): Boolean =
+        o.fontSizeTranslated != null ||
+            o.fontColorTranslatedArgb != null ||
+            o.outlineWidthTranslated != null
+
+    /**
+     * Read [src] (a SubRip file produced by the translation step, where each
+     * cue text is "original\ntranslated") and write [dst] with ASS inline
+     * override tags prepended to the translated line. libass honors `{\...}`
+     * tags inside SRT cues, so this lets us style the two lines independently
+     * without converting on-disk artifacts to .ass.
+     */
+    private fun writeStyledBilingualSrt(src: File, dst: File, o: BurnOptions) {
+        val translatedTag = buildString {
+            append('{')
+            o.fontSizeTranslated?.let { append("\\fs").append(it) }
+            o.fontColorTranslatedArgb?.let { append("\\c").append(argbToAssBgr(it)) }
+            o.outlineWidthTranslated?.let { append("\\bord").append(it) }
+            append('}')
+        }
+        val text = src.readText()
+        // SRT cues are separated by blank lines. For each cue, the body is
+        // everything after the timing line. Inject the override tag at the
+        // start of every line after the first body line.
+        val rebuilt = StringBuilder(text.length + 64)
+        val cues = text.split(Regex("\\r?\\n\\r?\\n"))
+        cues.forEachIndexed { idx, cue ->
+            val trimmed = cue.trim('\r', '\n')
+            if (trimmed.isEmpty()) return@forEachIndexed
+            val lines = trimmed.split(Regex("\\r?\\n"))
+            // Find the timing line ("00:00:01,000 --> 00:00:02,000"). Header
+            // lines (sequence number) precede it; body lines follow.
+            val timingIdx = lines.indexOfFirst { it.contains("-->") }
+            if (timingIdx < 0) {
+                rebuilt.append(trimmed)
+            } else {
+                lines.subList(0, timingIdx + 1).forEach { rebuilt.append(it).append('\n') }
+                lines.subList(timingIdx + 1, lines.size).forEachIndexed { bodyIdx, line ->
+                    if (bodyIdx == 0) {
+                        rebuilt.append(line).append('\n')
+                    } else {
+                        rebuilt.append(translatedTag).append(line).append('\n')
+                    }
+                }
+            }
+            if (idx != cues.size - 1) rebuilt.append('\n')
+        }
+        dst.writeText(rebuilt.toString())
     }
 
     private fun argbToAssBgr(argb: Int): String {

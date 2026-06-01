@@ -256,14 +256,30 @@ class TaskOrchestrator(
 
     private fun uniqueDisplayName(name: String): String = name
 
-    private fun AppSettings.toBurnOptions(): BurnOptions = BurnOptions(
-        mode = burnMode,
-        preset = preset.ffmpegPreset,
-        fontSize = fontSize,
-        fontColorArgb = fontColor.argb,
-        outlineWidth = if (outline) DEFAULT_OUTLINE_WIDTH else 0,
-        alignment = alignment,
-    )
+    private fun AppSettings.toBurnOptions(): BurnOptions {
+        val mainOutline = if (outline) DEFAULT_OUTLINE_WIDTH else 0
+        val trOutline = if (outlineTranslated) DEFAULT_OUTLINE_WIDTH else 0
+        val translatedDiffers = fontSizeTranslated != fontSize ||
+            fontColorTranslated != fontColor ||
+            outlineTranslated != outline
+        // Map percent (0..100) → ASS alpha byte (0=transparent, 255=opaque).
+        val bgAlpha = (backgroundOpacity.coerceIn(0, 100) * 255 / 100)
+        return BurnOptions(
+            mode = burnMode,
+            preset = preset.ffmpegPreset,
+            fontSize = fontSize,
+            fontColorArgb = fontColor.argb,
+            outlineWidth = mainOutline,
+            fontSizeTranslated = if (translatedDiffers) fontSizeTranslated else null,
+            fontColorTranslatedArgb = if (translatedDiffers) fontColorTranslated.argb else null,
+            outlineWidthTranslated = if (translatedDiffers) trOutline else null,
+            alignment = alignment,
+            marginV = marginV,
+            marginH = marginH,
+            background = background,
+            backgroundAlpha = bgAlpha,
+        )
+    }
 
     private fun hasEnoughSpace(dir: File?, neededBytes: Long): Boolean {
         val target = dir ?: return true
