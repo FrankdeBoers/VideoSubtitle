@@ -79,9 +79,21 @@
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_section_model">Speech model</string>
-    <string name="settings_model_tiny">Tiny · 75 MB · Fastest</string>
-    <string name="settings_model_base">Base · 142 MB · Default</string>
-    <string name="settings_model_small">Small · 466 MB · Best quality</string>
+    <string name="settings_model_tiny_name">Tiny · %1$s</string>
+    <string name="settings_model_base_name">Base · %1$s</string>
+    <string name="settings_model_small_name">Small · %1$s</string>
+    <string name="settings_model_tiny_desc">Fastest. Best for short clips or low-end devices; lower accuracy.</string>
+    <string name="settings_model_base_desc">Recommended default. Balanced speed and accuracy for most videos.</string>
+    <string name="settings_model_small_desc">Best quality. More accurate but larger download and slower transcription.</string>
+    <string name="settings_model_speed">Speed %1$s</string>
+    <string name="settings_model_quality">Quality %1$s</string>
+    <string name="settings_model_status_missing">Not downloaded</string>
+    <string name="settings_model_status_downloading">Downloading %1$d%% · %2$s / %3$s</string>
+    <string name="settings_model_status_ready">Downloaded</string>
+    <string name="settings_model_status_failed">Download failed: %1$s</string>
+    <string name="settings_model_action_download">Download</string>
+    <string name="settings_model_action_cancel">Cancel</string>
+    <string name="settings_model_action_retry">Retry</string>
     <string name="settings_section_language">Language</string>
     <string name="settings_language_hint">Language</string>
     <string name="settings_lang_auto">Auto-detect</string>

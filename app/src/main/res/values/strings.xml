@@ -79,9 +79,21 @@
     <!-- Settings -->
     <string name="settings_title">设置</string>
     <string name="settings_section_model">语音识别模型</string>
-    <string name="settings_model_tiny">Tiny · 75 MB · 速度优先</string>
-    <string name="settings_model_base">Base · 142 MB · 默认</string>
-    <string name="settings_model_small">Small · 466 MB · 质量优先</string>
+    <string name="settings_model_tiny_name">Tiny · %1$s</string>
+    <string name="settings_model_base_name">Base · %1$s</string>
+    <string name="settings_model_small_name">Small · %1$s</string>
+    <string name="settings_model_tiny_desc">速度优先。适合短视频或低端设备，准确率较低。</string>
+    <string name="settings_model_base_desc">默认推荐。速度与准确率均衡，适合大部分场景。</string>
+    <string name="settings_model_small_desc">质量优先。识别更准确，但下载更大、速度更慢。</string>
+    <string name="settings_model_speed">速度 %1$s</string>
+    <string name="settings_model_quality">质量 %1$s</string>
+    <string name="settings_model_status_missing">未下载</string>
+    <string name="settings_model_status_downloading">下载中 %1$d%% · %2$s / %3$s</string>
+    <string name="settings_model_status_ready">已下载</string>
+    <string name="settings_model_status_failed">下载失败：%1$s</string>
+    <string name="settings_model_action_download">下载</string>
+    <string name="settings_model_action_cancel">取消</string>
+    <string name="settings_model_action_retry">重试</string>
     <string name="settings_section_language">识别语言</string>
     <string name="settings_language_hint">语言</string>
     <string name="settings_lang_auto">自动检测</string>

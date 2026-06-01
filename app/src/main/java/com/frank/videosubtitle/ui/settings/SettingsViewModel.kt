@@ -2,6 +2,8 @@ package com.frank.videosubtitle.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.frank.videosubtitle.data.repository.ModelDownloadEvent
+import com.frank.videosubtitle.data.repository.ModelRepository
 import com.frank.videosubtitle.data.repository.SettingsRepository
 import com.frank.videosubtitle.data.repository.TaskRepository
 import com.frank.videosubtitle.domain.engine.BurnMode
@@ -13,12 +15,17 @@ import com.frank.videosubtitle.domain.model.TaskStage
 import com.frank.videosubtitle.domain.model.VideoPreset
 import com.frank.videosubtitle.domain.model.WhisperModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -27,6 +34,7 @@ import java.io.File
 class SettingsViewModel(
     private val settings: SettingsRepository,
     private val taskRepository: TaskRepository,
+    private val modelRepository: ModelRepository,
     private val cacheDir: File,
 ) : ViewModel() {
 
@@ -36,6 +44,11 @@ class SettingsViewModel(
     val anyTaskRunning: StateFlow<Boolean> = taskRepository.observeAll()
         .map { tasks -> tasks.any { it.stage.isInProgress() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    private val _modelStatus = MutableStateFlow(initialStatus())
+    val modelStatus: StateFlow<Map<WhisperModel, ModelCardStatus>> = _modelStatus.asStateFlow()
+
+    private val downloadJobs = mutableMapOf<WhisperModel, Job>()
 
     private val _effects = Channel<Effect>(Channel.BUFFERED)
     val effects = _effects.receiveAsFlow()
@@ -48,6 +61,51 @@ class SettingsViewModel(
     fun setFontColor(color: SubtitleColor) = viewModelScope.launch { settings.setFontColor(color) }
     fun setOutline(enabled: Boolean) = viewModelScope.launch { settings.setOutline(enabled) }
     fun setAlignment(alignment: SubtitleAlignment) = viewModelScope.launch { settings.setAlignment(alignment) }
+
+    fun startDownload(model: WhisperModel) {
+        if (downloadJobs[model]?.isActive == true) return
+        if (modelRepository.isAvailable(model)) {
+            _modelStatus.update { it + (model to ModelCardStatus.Ready) }
+            return
+        }
+        _modelStatus.update {
+            it + (model to ModelCardStatus.Downloading(0, 0, model.sizeBytes))
+        }
+        downloadJobs[model] = viewModelScope.launch {
+            modelRepository.download(model)
+                .catch { t ->
+                    Timber.e(t, "model download failed: %s", model.fileName)
+                    _modelStatus.update {
+                        it + (model to ModelCardStatus.Failed(t.message ?: t.javaClass.simpleName))
+                    }
+                }
+                .collect { event ->
+                    when (event) {
+                        is ModelDownloadEvent.Progress -> _modelStatus.update {
+                            it + (model to ModelCardStatus.Downloading(
+                                percent = event.percent,
+                                downloaded = event.downloaded,
+                                total = event.total,
+                            ))
+                        }
+                        is ModelDownloadEvent.Done -> _modelStatus.update {
+                            it + (model to ModelCardStatus.Ready)
+                        }
+                    }
+                }
+            downloadJobs.remove(model)
+        }
+    }
+
+    fun cancelDownload(model: WhisperModel) {
+        downloadJobs.remove(model)?.cancel()
+        val nextStatus = if (modelRepository.isAvailable(model)) {
+            ModelCardStatus.Ready
+        } else {
+            ModelCardStatus.Missing
+        }
+        _modelStatus.update { it + (model to nextStatus) }
+    }
 
     fun clearCache() {
         if (anyTaskRunning.value) {
@@ -63,6 +121,11 @@ class SettingsViewModel(
         }
     }
 
+    private fun initialStatus(): Map<WhisperModel, ModelCardStatus> =
+        WhisperModel.entries.associateWith {
+            if (modelRepository.isAvailable(it)) ModelCardStatus.Ready else ModelCardStatus.Missing
+        }
+
     sealed class Effect {
         data object CacheCleared : Effect()
         data object CacheBlocked : Effect()
@@ -75,4 +138,11 @@ class SettingsViewModel(
         -> true
         else -> false
     }
+}
+
+sealed interface ModelCardStatus {
+    data object Missing : ModelCardStatus
+    data class Downloading(val percent: Int, val downloaded: Long, val total: Long) : ModelCardStatus
+    data object Ready : ModelCardStatus
+    data class Failed(val reason: String) : ModelCardStatus
 }

@@ -33,24 +33,18 @@
             <TextView
                 style="@style/SettingsSectionHeader"
                 android:text="@string/settings_section_model" />
-            <RadioGroup
-                android:id="@+id/group_model"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-                <com.google.android.material.radiobutton.MaterialRadioButton
-                    android:id="@+id/model_tiny"
-                    style="@style/SettingsRadio"
-                    android:text="@string/settings_model_tiny" />
-                <com.google.android.material.radiobutton.MaterialRadioButton
-                    android:id="@+id/model_base"
-                    style="@style/SettingsRadio"
-                    android:text="@string/settings_model_base" />
-                <com.google.android.material.radiobutton.MaterialRadioButton
-                    android:id="@+id/model_small"
-                    style="@style/SettingsRadio"
-                    android:text="@string/settings_model_small" />
-            </RadioGroup>
+
+            <include
+                android:id="@+id/card_tiny"
+                layout="@layout/item_model_card" />
+
+            <include
+                android:id="@+id/card_base"
+                layout="@layout/item_model_card" />
+
+            <include
+                android:id="@+id/card_small"
+                layout="@layout/item_model_card" />
 
             <!-- Section: Language -->
             <TextView
