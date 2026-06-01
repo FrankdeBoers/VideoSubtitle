@@ -2,6 +2,7 @@ package com.frank.videosubtitle.ui.settings
 
 import android.content.Context
 import com.frank.videosubtitle.R
+import com.frank.videosubtitle.domain.engine.SubtitleDisplay
 import com.frank.videosubtitle.domain.model.LanguagePref
 import com.frank.videosubtitle.domain.model.TranslationProvider
 import com.frank.videosubtitle.domain.model.VideoPreset
@@ -14,6 +15,14 @@ internal fun Context.languageLabel(pref: LanguagePref): String = getString(
         LanguagePref.En -> R.string.settings_lang_en
         LanguagePref.Ja -> R.string.settings_lang_ja
         LanguagePref.Ko -> R.string.settings_lang_ko
+    },
+)
+
+internal fun Context.displayLabel(mode: SubtitleDisplay): String = getString(
+    when (mode) {
+        SubtitleDisplay.Both -> R.string.settings_display_both
+        SubtitleDisplay.MainOnly -> R.string.settings_display_main
+        SubtitleDisplay.TranslatedOnly -> R.string.settings_display_translated
     },
 )
 

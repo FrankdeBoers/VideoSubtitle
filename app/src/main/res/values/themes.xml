@@ -62,6 +62,45 @@
         <item name="android:letterSpacing">0.06</item>
     </style>
 
+    <style name="SettingsSliderRow" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">14dp</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:orientation">horizontal</item>
+    </style>
+
+    <style name="SettingsSliderTitle" parent="android:Widget.TextView">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:textAppearance">?attr/textAppearanceBodyMedium</item>
+    </style>
+
+    <style name="SettingsSliderValue" parent="android:Widget.TextView">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/bg_slider_value</item>
+        <item name="android:paddingHorizontal">10dp</item>
+        <item name="android:paddingVertical">3dp</item>
+        <item name="android:textAppearance">?attr/textAppearanceLabelMedium</item>
+        <item name="android:textColor">?attr/colorOnPrimaryContainer</item>
+        <item name="android:minWidth">52dp</item>
+        <item name="android:gravity">center</item>
+    </style>
+
+    <style name="Widget.App.Slider" parent="Widget.Material3.Slider">
+        <item name="trackHeight">12dp</item>
+        <item name="trackInsideCornerSize">2dp</item>
+        <item name="trackStopIndicatorSize">4dp</item>
+        <item name="thumbWidth">24dp</item>
+        <item name="thumbHeight">24dp</item>
+        <item name="thumbTrackGapSize">6dp</item>
+        <item name="thumbStrokeWidth">0dp</item>
+        <item name="labelBehavior">gone</item>
+        <item name="haloRadius">20dp</item>
+    </style>
+
     <style name="SettingsGroupCard" parent="Widget.Material3.CardView.Elevated">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>

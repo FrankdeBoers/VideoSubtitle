@@ -25,6 +25,8 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:orientation="vertical"
             android:paddingHorizontal="16dp"
             android:paddingVertical="12dp">
@@ -100,37 +102,20 @@
                         android:text="@string/settings_style_section_display"
                         android:textStyle="bold" />
 
-                    <com.google.android.material.button.MaterialButtonToggleGroup
-                        android:id="@+id/group_display"
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        app:selectionRequired="true"
-                        app:singleSelection="true">
+                        android:layout_marginTop="8dp"
+                        android:hint="@string/settings_style_section_display">
 
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/display_both"
-                            style="?attr/materialButtonOutlinedStyle"
-                            android:layout_width="0dp"
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/dropdown_display"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="@string/settings_display_both" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/display_main"
-                            style="?attr/materialButtonOutlinedStyle"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="@string/settings_display_main" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/display_translated"
-                            style="?attr/materialButtonOutlinedStyle"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="@string/settings_display_translated" />
-                    </com.google.android.material.button.MaterialButtonToggleGroup>
+                            android:editable="false"
+                            android:inputType="none" />
+                    </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -145,6 +130,8 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
                     android:orientation="vertical"
                     android:padding="14dp">
 
@@ -178,24 +165,40 @@
                             android:text="@string/settings_align_top" />
                     </com.google.android.material.button.MaterialButtonToggleGroup>
 
-                    <TextView
-                        android:id="@+id/label_margin_v"
-                        style="@style/SettingsLabel" />
+                    <LinearLayout style="@style/SettingsSliderRow">
+
+                        <TextView
+                            style="@style/SettingsSliderTitle"
+                            android:text="@string/settings_label_margin_v" />
+
+                        <TextView
+                            android:id="@+id/value_margin_v"
+                            style="@style/SettingsSliderValue" />
+                    </LinearLayout>
 
                     <com.google.android.material.slider.Slider
                         android:id="@+id/slider_margin_v"
+                        style="@style/Widget.App.Slider"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:stepSize="1"
                         android:valueFrom="0"
                         android:valueTo="200" />
 
-                    <TextView
-                        android:id="@+id/label_margin_h"
-                        style="@style/SettingsLabel" />
+                    <LinearLayout style="@style/SettingsSliderRow">
+
+                        <TextView
+                            style="@style/SettingsSliderTitle"
+                            android:text="@string/settings_label_margin_h" />
+
+                        <TextView
+                            android:id="@+id/value_margin_h"
+                            style="@style/SettingsSliderValue" />
+                    </LinearLayout>
 
                     <com.google.android.material.slider.Slider
                         android:id="@+id/slider_margin_h"
+                        style="@style/Widget.App.Slider"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:stepSize="1"
@@ -215,6 +218,8 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
                     android:orientation="vertical"
                     android:padding="14dp">
 
@@ -224,17 +229,25 @@
                         android:textSize="16dp"
                         android:textStyle="bold" />
 
-                    <TextView
-                        android:id="@+id/label_font_size"
-                        style="@style/SettingsLabel" />
+                    <LinearLayout style="@style/SettingsSliderRow">
+
+                        <TextView
+                            style="@style/SettingsSliderTitle"
+                            android:text="@string/settings_label_font_size" />
+
+                        <TextView
+                            android:id="@+id/value_font_size"
+                            style="@style/SettingsSliderValue" />
+                    </LinearLayout>
 
                     <com.google.android.material.slider.Slider
                         android:id="@+id/slider_font_size"
+                        style="@style/Widget.App.Slider"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:stepSize="1"
                         android:valueFrom="18"
-                        android:valueTo="40" />
+                        android:valueTo="60" />
 
                     <com.google.android.material.button.MaterialButtonToggleGroup
                         android:id="@+id/group_color"
@@ -282,12 +295,20 @@
                         android:layout_marginTop="12dp"
                         android:text="@string/settings_background_enable" />
 
-                    <TextView
-                        android:id="@+id/label_bg_opacity"
-                        style="@style/SettingsLabel" />
+                    <LinearLayout style="@style/SettingsSliderRow">
+
+                        <TextView
+                            style="@style/SettingsSliderTitle"
+                            android:text="@string/settings_label_bg_opacity" />
+
+                        <TextView
+                            android:id="@+id/value_bg_opacity"
+                            style="@style/SettingsSliderValue" />
+                    </LinearLayout>
 
                     <com.google.android.material.slider.Slider
                         android:id="@+id/slider_bg_opacity"
+                        style="@style/Widget.App.Slider"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:stepSize="1"
@@ -307,6 +328,8 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
                     android:orientation="vertical"
                     android:padding="14dp">
 
@@ -316,17 +339,25 @@
                         android:textSize="16dp"
                         android:textStyle="bold" />
 
-                    <TextView
-                        android:id="@+id/label_font_size_tr"
-                        style="@style/SettingsLabel" />
+                    <LinearLayout style="@style/SettingsSliderRow">
+
+                        <TextView
+                            style="@style/SettingsSliderTitle"
+                            android:text="@string/settings_label_font_size" />
+
+                        <TextView
+                            android:id="@+id/value_font_size_tr"
+                            style="@style/SettingsSliderValue" />
+                    </LinearLayout>
 
                     <com.google.android.material.slider.Slider
                         android:id="@+id/slider_font_size_tr"
+                        style="@style/Widget.App.Slider"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:stepSize="1"
                         android:valueFrom="18"
-                        android:valueTo="40" />
+                        android:valueTo="60" />
 
                     <com.google.android.material.button.MaterialButtonToggleGroup
                         android:id="@+id/group_color_tr"

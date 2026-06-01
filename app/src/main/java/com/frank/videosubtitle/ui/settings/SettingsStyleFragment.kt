@@ -124,12 +124,11 @@ class SettingsStyleFragment :
             binding.sliderMarginH.value = s.marginH.toFloat()
             binding.sliderBgOpacity.value = s.backgroundOpacity.toFloat()
 
-            binding.labelFontSize.text = getString(R.string.settings_font_size, s.fontSize)
-            binding.labelFontSizeTr.text = getString(R.string.settings_font_size, s.fontSizeTranslated)
-            binding.labelMarginV.text = getString(R.string.settings_margin_v, s.marginV)
-            binding.labelMarginH.text = getString(R.string.settings_margin_h, s.marginH)
-            binding.labelBgOpacity.text =
-                getString(R.string.settings_background_opacity, s.backgroundOpacity)
+            binding.valueFontSize.text = getString(R.string.settings_value_sp, s.fontSize)
+            binding.valueFontSizeTr.text = getString(R.string.settings_value_sp, s.fontSizeTranslated)
+            binding.valueMarginV.text = getString(R.string.settings_value_int, s.marginV)
+            binding.valueMarginH.text = getString(R.string.settings_value_int, s.marginH)
+            binding.valueBgOpacity.text = getString(R.string.settings_value_percent, s.backgroundOpacity)
 
             binding.groupColor.check(colorButton(s.fontColor, translated = false))
             binding.groupColorTr.check(colorButton(s.fontColorTranslated, translated = true))

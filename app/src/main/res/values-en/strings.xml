@@ -155,6 +155,13 @@
     <string name="settings_style_section_background">Background</string>
     <string name="settings_margin_v">Vertical offset %1$d</string>
     <string name="settings_margin_h">Horizontal offset %1$d</string>
+    <string name="settings_label_font_size">Font size</string>
+    <string name="settings_label_margin_v">Vertical offset</string>
+    <string name="settings_label_margin_h">Horizontal offset</string>
+    <string name="settings_label_bg_opacity">Background opacity</string>
+    <string name="settings_value_sp">%1$d sp</string>
+    <string name="settings_value_int">%1$d</string>
+    <string name="settings_value_percent">%1$d%%</string>
     <string name="settings_background_enable">Show background box</string>
     <string name="settings_background_opacity">Background opacity %1$d%%</string>
     <string name="settings_style_section_display">Subtitle display</string>
