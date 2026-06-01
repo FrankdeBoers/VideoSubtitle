@@ -1,0 +1,5 @@
+# 强制识别Kotlin文件
+*.kt linguist-language=Kotlin
+*.kts linguist-language=Kotlin
+*.c linguist-language=Kotlin
+*.cpp linguist-language=Kotlin
