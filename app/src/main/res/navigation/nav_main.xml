@@ -44,6 +44,9 @@
         <action
             android:id="@+id/action_settings_to_threads"
             app:destination="@id/settingsThreadsFragment" />
+        <action
+            android:id="@+id/action_settings_to_compute"
+            app:destination="@id/settingsComputeFragment" />
     </fragment>
 
     <fragment
@@ -87,6 +90,12 @@
         android:name="com.frank.videosubtitle.ui.settings.SettingsThreadsFragment"
         android:label="@string/settings_section_threads"
         tools:layout="@layout/fragment_settings_threads" />
+
+    <fragment
+        android:id="@+id/settingsComputeFragment"
+        android:name="com.frank.videosubtitle.ui.settings.SettingsComputeFragment"
+        android:label="@string/settings_section_compute"
+        tools:layout="@layout/fragment_settings_compute" />
 
     <fragment
         android:id="@+id/progressFragment"

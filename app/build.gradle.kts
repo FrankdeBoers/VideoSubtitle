@@ -32,7 +32,13 @@ android {
         // filter on `ndk` or AGP rejects the duplicate. cmake flags only:
         externalNativeBuild {
             cmake {
-                arguments += listOf("-DANDROID_STL=c++_shared")
+                arguments += listOf(
+                    "-DANDROID_STL=c++_shared",
+                    // Phase 8 / docs/GPU_SUPPORT_PLAN.md — opt the Whisper Vulkan
+                    // backend into the build. Toggling this rewrites CMakeCache.txt
+                    // so a stale OFF cache from older builds is replaced.
+                    "-DWHISPER_VULKAN=ON",
+                )
                 cppFlags += listOf("-std=c++17", "-fexceptions")
                 cFlags += listOf("-Wno-unused-function")
             }

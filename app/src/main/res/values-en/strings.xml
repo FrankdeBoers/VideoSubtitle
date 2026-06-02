@@ -199,6 +199,21 @@
     <string name="settings_threads_value_auto_short">Auto</string>
     <string name="settings_threads_value_count_short">%1$d</string>
     <string name="settings_threads_hint">Used for Whisper transcription. More threads run faster but increase heat and battery use. Under sustained load the device may thermally throttle — fewer threads can be steadier in that case.</string>
+    <!-- Compute backend (GPU acceleration) — see docs/GPU_SUPPORT_PLAN.md -->
+    <string name="settings_section_compute">Compute</string>
+    <string name="settings_compute_title">Whisper inference</string>
+    <string name="settings_compute_auto">Auto</string>
+    <string name="settings_compute_auto_desc">Use GPU when supported, otherwise fall back to CPU</string>
+    <string name="settings_compute_cpu">CPU only</string>
+    <string name="settings_compute_cpu_desc">Most reliable; works on every device</string>
+    <string name="settings_compute_gpu">Use GPU</string>
+    <string name="settings_compute_gpu_desc">Faster but uses more power; needs a compatible Vulkan GPU</string>
+    <string name="settings_compute_gpu_unsupported">Not supported on this device</string>
+    <string name="settings_compute_hint">GPU acceleration runs Whisper\'s encoder/decoder on Vulkan. Older drivers can produce wrong tokens — switch back to CPU if you see garbled output.</string>
+    <string name="settings_summary_compute_auto">Auto (%1$s)</string>
+    <string name="settings_summary_compute_cpu">CPU</string>
+    <string name="settings_summary_compute_gpu">GPU (%1$s)</string>
+    <string name="error_gpu_init_failed_falling_back">GPU init failed — using CPU</string>
     <string name="settings_section_cache">Cache</string>
     <string name="settings_clear_cache">Clear task cache</string>
     <string name="settings_clear_cache_hint">Removes intermediate files (audio, subtitle drafts, temp videos). Downloaded models are kept.</string>

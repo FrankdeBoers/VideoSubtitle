@@ -12,11 +12,26 @@ data class WhisperConfig(
     val translate: Boolean = false,
     val initialPrompt: String? = null,
     val nThreads: Int = 4,
+    val computeMode: ComputeMode = ComputeMode.Auto,
 )
 
 sealed interface TranscribeEvent {
     data class Progress(val percent: Int) : TranscribeEvent
     data class Done(val subtitle: Subtitle) : TranscribeEvent
+    /**
+     * One-shot informational hint surfaced by the engine — currently emitted
+     * on GPU init failure when we fall back to CPU. UI may show a toast or
+     * subtle banner; the pipeline keeps running.
+     */
+    data class Info(val messageKey: InfoKey, val detail: String? = null) : TranscribeEvent
+}
+
+/**
+ * Stable keys for [TranscribeEvent.Info] so the UI layer can resolve them to
+ * localized strings without leaking native error text into i18n.
+ */
+enum class InfoKey {
+    GpuFallbackToCpu,
 }
 
 class WhisperException(message: String, cause: Throwable? = null) :

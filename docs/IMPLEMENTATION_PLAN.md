@@ -429,5 +429,54 @@ data class WhisperConfig(
 | M3 编辑 + 合成 | 4, 5 | 能编辑字幕并烧回视频 |
 | M4 后台 + 体验 | 6, 7 | 可发布的 v1.0.0 |
 | M5 硬件路径 | 8 | 用户可选 Android Media 后端，长视频明显加速 |
+| M6 GPU 加速 | 8（GPU 子项） | Whisper 转写支持 GPU（Vulkan）后端，支持设备上 2–4× 加速 |
 
 每个 M 完成后做一次回归测试矩阵执行，并按需更新 SDD。
+
+---
+
+## Phase 8 — Whisper GPU 加速（Vulkan）
+
+详细规划见 [`GPU_SUPPORT_PLAN.md`](./GPU_SUPPORT_PLAN.md)。**Phase A 已落地构建可用的 Vulkan 后端**：
+
+### Kotlin / JNI / UI 接线
+
+- `domain/engine/ComputeMode`（Auto/Cpu/Gpu）+ `WhisperConfig.computeMode`
+- DataStore key `compute_mode` 与 `SettingsRepository.setComputeMode`
+- `WhisperLib.initContextWithParams(modelPath, useGpu)` / `gpuAvailable()` / `gpuDeviceName()` 三个 JNI 入口（`gpuAvailable()` 通过 `ggml_backend_dev_*` 探测，是否存在 `GGML_BACKEND_DEVICE_TYPE_GPU` 设备即为是否可用）
+- `WhisperJniEngine`：按 `computeMode` 选择后端，GPU 初始化失败时**单次回退到 CPU** 并发出 `TranscribeEvent.Info(GpuFallbackToCpu)`
+- 设置页新增 **计算后端**（Compute）项：Auto / 仅 CPU / 使用 GPU 三选一；GPU 不可用时禁用单选并显示"本设备不支持"
+- i18n（zh/en）字符串齐备
+
+### 原生 / CMake / vendoring
+
+- `app/src/main/cpp/whisper.cpp/ggml/src/ggml-vulkan/`：从 whisper.cpp v1.7.5 vendor 进 `ggml-vulkan.cpp`、`vulkan-shaders/{*.comp, vulkan-shaders-gen.cpp, CMakeLists.txt}`、`cmake/host-toolchain.cmake.in`，以及 `ggml/include/ggml-vulkan.h`。
+- `app/src/main/cpp/third_party/Vulkan-Headers/`：vendor 上游 KhronosGroup/Vulkan-Headers `vulkan-sdk-1.3.290.0` 的头文件。**原因**：NDK 26.3 自带的 `sources/third_party/vulkan/src/include/vulkan/vulkan_enums.hpp` 在 v1.3.237 版本里有重复的 `enum class MemoryMapFlagBits` 等定义，编译报错。
+- `CMakeLists.txt`：`option(WHISPER_VULKAN ...)` 默认 ON。`-DWHISPER_VULKAN=ON` 也由 `app/build.gradle.kts` 显式传递，避免 CMakeCache 残留 OFF。
+- 主机端 `vulkan-shaders-gen` 通过 `ExternalProject_Add` 编出。toolchain 选择：
+  - **macOS**：固定到 `/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk`，因为 macOS 26.4 SDK 自带的 libc++ 用了 Apple Clang 21 还不支持的 `__builtin_clzg` / `__builtin_ctzg`。
+  - **Linux/Windows**：fallback 走 PATH 上找到的 host clang/gcc。
+- `glslc` 用 NDK 自带的 `${ANDROID_NDK}/shader-tools/<host-tag>/glslc`。
+- 链接 NDK sysroot 的 `libvulkan.so`。
+- ABI 覆盖：`arm64-v8a` + `armeabi-v7a`（与 CPU 路径一致）。
+
+### Vulkan-Hpp 动态调度补丁（保留 minSdk=26）
+
+`ggml-vulkan.cpp` 上游版本用 Vulkan-Hpp 的**静态 dispatcher**，会硬链 `vkGetPhysicalDeviceFeatures2` / `vkEnumerateInstanceVersion` / `vkGetPhysicalDeviceProperties2`（皆 Vulkan 1.1 起）。NDK API 26 的 `libvulkan.so` 不导出这些符号 → `libwhisper.so` 在 Android 8.0 设备上 `System.loadLibrary` 会直接抛 `UnsatisfiedLinkError`。
+
+为保留计划里 `minSdk=26 不动，软回退` 的承诺，本仓对 vendored `ggml-vulkan.cpp` 做了三处最小补丁（每处都有 `// VideoSubtitle patch` 注释）：
+
+1. 文件顶部 `#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1`，并在全局命名空间加 `VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE`。
+2. `ggml_vk_instance_init()` 入口处用 `vk::DynamicLoader`（Vulkan-Hpp v1.3.290 把它放在 `vk::` 不在 `vk::detail::`）拿 `vkGetInstanceProcAddr`，初始化 dispatcher。`vk::createInstance` 之后用 instance 再次 `init()`，`createDevice` 之后用 device 再次 `init()`。
+3. 两处直接调 C 函数 `vkGetPhysicalDeviceFeatures2(...)` 改写为 `VULKAN_HPP_DEFAULT_DISPATCHER.vkGetPhysicalDeviceFeatures2(...)`。
+
+构建结果（release 后 strip）：
+- `arm64-v8a` `libwhisper.so` 7.3 MB，未解析符号只剩 `vkGetInstanceProcAddr` 和 `vkCmdCopyBuffer`（皆 Vulkan 1.0，API 26+ 必有）→ 任意 Android 8.0+ 设备都能 dlopen。
+- 完整 release APK：`arm64-v8a` 55 MB / `armeabi-v7a` 76 MB（仍主要受 ffmpeg-kit 拖累；ggml-vulkan 部分增量 ~2–3 MB / ABI，与 plan §3.4 估算一致）。
+
+### 还剩两件事（Phase A 完整验收）
+
+1. **真机 byte-diff 验收**：在至少一台 Adreno（Snapdragon 8 Gen 1+）和一台 Mali（G-78+）设备上跑 Tiny/Base/Small + 30s WAV，对比 CPU 与 GPU 的 SRT 输出（whisper deterministic flag 下应 byte-identical）。
+2. **bench harness**：debug build 的隐藏菜单项，循环跑同一段 30s WAV × 3 模型 × 3 后端，把 wall-clock 写到 logcat。今天的 commit 不含此项 — 等真机验收要做时一并加。
+
+Phase B（OpenCL on Adreno）与 Phase C（shader pre-warm、battery 监控、mirror URL）按 `GPU_SUPPORT_PLAN.md` §7 执行。

@@ -109,6 +109,10 @@
                     <include
                         android:id="@+id/row_threads"
                         layout="@layout/view_settings_row" />
+
+                    <include
+                        android:id="@+id/row_compute"
+                        layout="@layout/view_settings_row" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

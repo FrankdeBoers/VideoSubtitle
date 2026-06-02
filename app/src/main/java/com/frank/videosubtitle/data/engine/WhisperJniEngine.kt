@@ -1,5 +1,7 @@
 package com.frank.videosubtitle.data.engine
 
+import com.frank.videosubtitle.domain.engine.ComputeMode
+import com.frank.videosubtitle.domain.engine.InfoKey
 import com.frank.videosubtitle.domain.engine.TranscribeEvent
 import com.frank.videosubtitle.domain.engine.WhisperConfig
 import com.frank.videosubtitle.domain.engine.WhisperEngine
@@ -41,20 +43,56 @@ class WhisperJniEngine(
         }
 
         val scope = CoroutineScope(SupervisorJob() + dispatchers.io)
-        val ctxPtr = WhisperLib.initContext(config.modelFile.absolutePath)
-        if (ctxPtr == 0L) {
-            close(WhisperException("whisper_init_from_file failed for ${config.modelFile.name}"))
-            return@callbackFlow
+
+        // Resolve Auto here so log lines record the actual backend used.
+        val wantGpu = when (config.computeMode) {
+            ComputeMode.Cpu -> false
+            ComputeMode.Gpu -> true
+            ComputeMode.Auto -> runCatching { WhisperLib.gpuAvailable() }.getOrDefault(false)
         }
-        val statePtr = WhisperLib.newState()
+
+        // Mutable so we can swap to a fresh CPU context on rc==-2 (GPU
+        // runtime exception). Captured by `awaitClose` so it always frees
+        // the CURRENT pair, never a stale one from before the retry.
+        var ctxPtr = 0L
+        var statePtr = 0L
+        var progressJob: Job? = null
+
+        fun openContext(useGpu: Boolean): Boolean {
+            ctxPtr = WhisperLib.initContextWithParams(config.modelFile.absolutePath, useGpu)
+            if (ctxPtr == 0L) return false
+            statePtr = WhisperLib.newState()
+            return true
+        }
+
+        // Open the requested backend; fall back to CPU on init failure.
+        var resolvedGpu = wantGpu
+        if (!openContext(wantGpu)) {
+            if (wantGpu) {
+                Timber.w("Whisper GPU init failed for %s — falling back to CPU", config.modelFile.name)
+                trySend(TranscribeEvent.Info(InfoKey.GpuFallbackToCpu))
+                resolvedGpu = false
+                if (!openContext(false)) {
+                    close(WhisperException("whisper_init_from_file failed for ${config.modelFile.name}"))
+                    return@callbackFlow
+                }
+            } else {
+                close(WhisperException("whisper_init_from_file failed for ${config.modelFile.name}"))
+                return@callbackFlow
+            }
+        }
 
         Timber.i(
-            "Whisper start: model=%s lang=%s threads=%d translate=%s wav=%s (%d bytes)",
+            "Whisper start: model=%s lang=%s threads=%d translate=%s gpu=%s wav=%s (%d bytes)",
             config.model.fileName, config.language ?: "auto", config.nThreads,
-            config.translate, wav.name, wav.length(),
+            config.translate, resolvedGpu, wav.name, wav.length(),
         )
 
-        val progressJob: Job = scope.launch {
+        // Progress poller — has to capture `statePtr` indirectly so the
+        // job restarted after a CPU fallback reads the new state pointer.
+        // We re-create the job each attempt rather than chase a moving
+        // target inside the running job.
+        fun launchProgressJob(stateForJob: Long): Job = scope.launch {
             // whisper.cpp emits native progress in coarse jumps (e.g. 36% then
             // 69%) once each internal chunk completes, so the bar appears
             // frozen for tens of seconds. We smooth it: between native bumps,
@@ -67,7 +105,7 @@ class WhisperJniEngine(
             val ticksPerNudge = 20 // 20 * 250ms = 5s
             val nudgeHeadroom = 10
             while (isActive) {
-                val p = WhisperLib.readProgress(statePtr).coerceIn(0, 100)
+                val p = WhisperLib.readProgress(stateForJob).coerceIn(0, 100)
                 if (p > lastNative) {
                     lastNative = p
                     ticksSinceBump = 0
@@ -88,12 +126,14 @@ class WhisperJniEngine(
             }
         }
 
+        progressJob = launchProgressJob(statePtr)
+
         val transcribeJob: Job = scope.launch {
             try {
                 val samples = WavDecoder.decodeMono16kHzPcm(wav)
                 Timber.d("Whisper decoded %d samples (%.2fs)", samples.size, samples.size / 16_000.0)
 
-                val rc = WhisperLib.fullTranscribe(
+                var rc = WhisperLib.fullTranscribe(
                     contextPtr = ctxPtr,
                     statePtr = statePtr,
                     numThreads = config.nThreads,
@@ -103,9 +143,50 @@ class WhisperJniEngine(
                     audioData = samples,
                 )
 
+                // rc == -2 is whisper_safe.cpp's "Vulkan threw a recoverable
+                // error mid-graph" code (most commonly vk::DeviceLostError
+                // from a flaky GPU driver). Tear down the GPU context, swap
+                // in a fresh CPU one, and rerun the same audio. We only do
+                // this once and only when we were running on GPU — a CPU
+                // path that returns -2 is a real bug we shouldn't paper over.
+                if (rc == -2 && resolvedGpu) {
+                    Timber.w("Whisper GPU runtime error (rc=-2) — retrying on CPU")
+                    trySend(TranscribeEvent.Info(InfoKey.GpuFallbackToCpu))
+
+                    // Stop the old progress poller before freeing its state.
+                    progressJob?.cancel()
+                    progressJob = null
+
+                    val oldCtx = ctxPtr
+                    val oldState = statePtr
+                    ctxPtr = 0L
+                    statePtr = 0L
+                    runCatching {
+                        WhisperLib.freeState(oldState)
+                        WhisperLib.freeContext(oldCtx)
+                    }.onFailure { Timber.w(it, "freeContext/freeState (post-GPU-fail) failed") }
+
+                    if (!openContext(false)) {
+                        close(WhisperException("CPU fallback init failed after GPU runtime error"))
+                        return@launch
+                    }
+                    resolvedGpu = false
+                    progressJob = launchProgressJob(statePtr)
+
+                    rc = WhisperLib.fullTranscribe(
+                        contextPtr = ctxPtr,
+                        statePtr = statePtr,
+                        numThreads = config.nThreads,
+                        language = config.language,
+                        prompt = config.initialPrompt,
+                        translate = config.translate,
+                        audioData = samples,
+                    )
+                }
+
                 when (rc) {
                     0 -> {
-                        progressJob.cancel()
+                        progressJob?.cancel()
                         trySend(TranscribeEvent.Progress(100))
                         val subtitle = readSegments(ctxPtr, config.language)
                         Timber.i("Whisper done: %d segments", subtitle.segments.size)
@@ -113,6 +194,8 @@ class WhisperJniEngine(
                         close()
                     }
                     -1 -> close(kotlinx.coroutines.CancellationException("whisper aborted"))
+                    -2 -> close(WhisperException("Whisper GPU runtime error (CPU fallback also failed)"))
+                    -3 -> close(WhisperException("Whisper inference threw a fatal C++ exception"))
                     else -> close(WhisperException("whisper_full returned $rc"))
                 }
             } catch (t: Throwable) {
@@ -121,9 +204,13 @@ class WhisperJniEngine(
         }
 
         awaitClose {
-            WhisperLib.setAbort(statePtr, true)
+            // Capture the latest pointers — the rc==-2 retry path may have
+            // swapped them out from under us.
+            val finalState = statePtr
+            val finalCtx = ctxPtr
+            if (finalState != 0L) WhisperLib.setAbort(finalState, true)
             transcribeJob.cancel()
-            progressJob.cancel()
+            progressJob?.cancel()
             scope.cancel()
             // freeContext/freeState are safe even after abort once whisper_full
             // returns. Run on a fresh thread so we don't block the consumer's
@@ -134,8 +221,8 @@ class WhisperJniEngine(
                     // Best-effort: wait briefly for transcribeJob to unwind so
                     // we don't free while whisper_full still references ctx.
                     Thread.sleep(50)
-                    WhisperLib.freeState(statePtr)
-                    WhisperLib.freeContext(ctxPtr)
+                    if (finalState != 0L) WhisperLib.freeState(finalState)
+                    if (finalCtx   != 0L) WhisperLib.freeContext(finalCtx)
                 }.onFailure { Timber.w(it, "freeContext/freeState failed") }
             }.start()
         }

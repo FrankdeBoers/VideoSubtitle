@@ -330,6 +330,7 @@ class TaskOrchestrator(
             translate = false,
             initialPrompt = settings.language.initialPrompt,
             nThreads = whisperThreadCount(settings.threadCount),
+            computeMode = settings.computeMode,
         )
 
         var failed = false
@@ -347,11 +348,19 @@ class TaskOrchestrator(
                 .collect { event ->
                     val now = taskRepository.find(taskId) ?: return@collect
                     if (now.stage is TaskStage.Failed) return@collect
-                    if (event is TranscribeEvent.Progress) {
-                        taskRepository.update(now.copy(stage = TaskStage.Transcribing(event.percent)))
+                    when (event) {
+                        is TranscribeEvent.Progress ->
+                            taskRepository.update(now.copy(stage = TaskStage.Transcribing(event.percent)))
+                        is TranscribeEvent.Info ->
+                            // Surfaced in logcat for now; no UI signal yet — this is the
+                            // GPU-fallback hint from `WhisperJniEngine`. Promote to a Snackbar
+                            // / banner when Phase B lands.
+                            Timber.i("Whisper info: %s%s", event.messageKey,
+                                event.detail?.let { " ($it)" }.orEmpty())
+                        is TranscribeEvent.Done -> Unit
+                        // Done is consumed by the orchestrator after the next pipeline
+                        // step (translate) decides whether to advance to Editing.
                     }
-                    // Done is consumed by the orchestrator after the next pipeline
-                    // step (translate) decides whether to advance to Editing.
                 }
         }
         return !failed

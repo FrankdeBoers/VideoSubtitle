@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.frank.videosubtitle.domain.engine.BurnMode
+import com.frank.videosubtitle.domain.engine.ComputeMode
 import com.frank.videosubtitle.domain.engine.SubtitleAlignment
 import com.frank.videosubtitle.domain.engine.SubtitleDisplay
 import com.frank.videosubtitle.domain.model.AppSettings
@@ -81,6 +82,7 @@ class SettingsDataStore(context: Context) {
         // device's actual core count, so we don't pin a max here.
         it[KEY_THREAD_COUNT] = value.coerceAtLeast(0)
     }
+    suspend fun setComputeMode(mode: ComputeMode) = store.edit { it[KEY_COMPUTE_MODE] = mode.name }
 
     private fun Preferences.toAppSettings(): AppSettings = AppSettings(
         model = readEnum(KEY_MODEL, WhisperModel.Base),
@@ -108,6 +110,7 @@ class SettingsDataStore(context: Context) {
         translationProvider = readEnum(KEY_TRANSLATION_PROVIDER, TranslationProvider.MlKit),
         mediaBackend = readEnum(KEY_MEDIA_BACKEND, MediaBackend.Ffmpeg),
         threadCount = (this[KEY_THREAD_COUNT] ?: AppSettings.THREAD_COUNT_AUTO).coerceAtLeast(0),
+        computeMode = readEnum(KEY_COMPUTE_MODE, ComputeMode.Auto),
     )
 
     private inline fun <reified T : Enum<T>> Preferences.readEnum(
@@ -139,5 +142,6 @@ class SettingsDataStore(context: Context) {
         private val KEY_TRANSLATION_PROVIDER = stringPreferencesKey("translation_provider")
         private val KEY_MEDIA_BACKEND = stringPreferencesKey("media_backend")
         private val KEY_THREAD_COUNT = intPreferencesKey("thread_count")
+        private val KEY_COMPUTE_MODE = stringPreferencesKey("compute_mode")
     }
 }

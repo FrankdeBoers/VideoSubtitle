@@ -162,11 +162,25 @@ com.frank.videosubtitle
 - `ggml/src/ggml-cpu/amx/{amx.cpp, amx.h, common.h, mmq.cpp, mmq.h}`（在 ARM 上是空翻译单元，仅为满足 ggml-cpu.cpp 的无条件 `#include`）
 - 故意删除的：CoreML、OpenVINO、Metal、CUDA、SYCL、Vulkan、examples、samples、tests、CI、scripts、KleidiAI
 
-**性能基线**：CPU 推理，`base` 模型 / 1080P 5min 视频 ≈ 实时倍率 1×（待真机验证）。Vulkan/OpenCL 不开。
+**性能基线**：CPU 推理，`base` 模型 / 1080P 5min 视频 ≈ 实时倍率 1×（待真机验证）。Vulkan/OpenCL 默认不开（见 §4.4 计算后端）。
 
 **版本升级路径**：whisper.cpp 上游 patch 升级时，对照 `whisper-arch.h` 与 `whisper.cpp/include/whisper.h` 的 ABI（`whisper_full_params` 字段顺序），一次性 `cp -R` 整棵 vendor 目录然后跑 `assembleDebug` —— 因为 CMake 源文件清单是显式列举，新增文件需要手动加进 `CMakeLists.txt`。
 
-### 4.3 DI：为什么是 Koin 而不是 Hilt
+### 4.4 计算后端（Compute backends）— Phase 8（2026-06）
+
+详见 [`GPU_SUPPORT_PLAN.md`](./GPU_SUPPORT_PLAN.md)。Whisper 推理后端通过 `domain/engine/ComputeMode`（`Auto` / `Cpu` / `Gpu`）暴露，`AppSettings.computeMode` 持久化、`TaskOrchestrator` 在 pipeline 启动时读出并经 `WhisperConfig.computeMode` 传给 `WhisperJniEngine`。
+
+- 公共 API 不变：`WhisperEngine.transcribe(...)` 签名稳定。
+- JNI 层新增 `WhisperLib.initContextWithParams(modelPath, useGpu)` / `gpuAvailable()` / `gpuDeviceName()`；旧 `initContext(modelPath)` 保留为薄封装以维持符号稳定。
+- 引擎层在 GPU 初始化失败（驱动错误 / OOM / shader compile 失败）时**单次**回退到 CPU，并发出 `TranscribeEvent.Info(GpuFallbackToCpu)` 一次性提示；用户作业不中断。
+- **构建已落地**：`WHISPER_VULKAN=ON` 默认开启；`ggml-vulkan.cpp` + 107 个 `.comp` shader vendored 到 `app/src/main/cpp/whisper.cpp/ggml/src/ggml-vulkan/`；Vulkan-Headers v1.3.290 vendored 到 `cpp/third_party/Vulkan-Headers/`（NDK 自带的 1.3.237 有 enum redefinition bug，必须自带）。CMake 主机端通过 `ExternalProject_Add` 编 `vulkan-shaders-gen`，用 NDK 自带的 `glslc` 把 `.comp` 编成 SPIR-V 数组链入 `libwhisper.so`。
+- **Vulkan-Hpp 动态调度补丁**：vendored `ggml-vulkan.cpp` 上加了三处带 `// VideoSubtitle patch` 注释的最小修改 — `#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1` 加上动态 dispatcher 三段 `init()`，再把两处直接调用 C 符号 `vkGetPhysicalDeviceFeatures2(...)` 路由到 dispatcher。这样 strip 后 `libwhisper.so` 的 UND Vulkan 符号只剩 `vkGetInstanceProcAddr` 与 `vkCmdCopyBuffer`（皆 Vulkan 1.0），保留 `minSdk=26` 也能 dlopen 成功；Vulkan 1.0-only 设备运行时 `gpuAvailable()` 自然返回 false 并走 CPU。
+- **运行时异常拦截层**：新增 `app/src/main/cpp/whisper_safe.cpp`，把 `whisper_full` / `whisper_init_from_file_with_params` 各包一层 C++ try/catch，捕获 Vulkan-Hpp 抛出的 `vk::DeviceLostError`、`OutOfDeviceMem` 等运行时异常，转换成 JNI 稳定的 rc 码：`-2` = GPU 运行时可恢复异常（调用方应释放 GPU ctx + 用 CPU 重试），`-3` = 其它致命 C++ 异常。`whisper_jni.c` 改走这两个 safe shim，避免 C 栈被 C++ 异常 unwind 直接 abort 进程。
+- **WhisperJniEngine 的 rc=-2 中途回退**：当 fullTranscribe 在 GPU 上返回 -2 时，引擎会发出 `TranscribeEvent.Info(GpuFallbackToCpu)`、释放 GPU 上下文、用 CPU 新建一份再跑同一段音频。整个动作发生在 callbackFlow 内部、不向上抛错，用户的转写任务仍能完成。这是为了应对真实场景观察到的 Mali/Adreno 驱动在 Whisper 大量小 dispatch 下偶发的 device-lost，不是规划文档原本的 "init 失败回退" 路径，是它的执行时延伸。
+- UI：设置页新增"计算后端"项；GPU 不支持时单选禁用，副标题显示设备 GPU 名（成功探测）或"本设备不支持"。
+- 待办：真机 byte-diff 验收 + bench harness（见 IMPLEMENTATION_PLAN.md Phase 8 末尾）。
+
+
 
 最初规划是 Hilt（codegen 路线）。Phase 0 接入时遇到：Hilt Gradle 插件在 AGP 9.x 上抛 `Android BaseExtension not found`。修复 PR（dagger #5084）2026-01-20 才合并到 main，**Maven Central 上还没有任何兼容 AGP 9 的 Hilt 发布版（最新是 2025-04 的 2.56.2）**。
 

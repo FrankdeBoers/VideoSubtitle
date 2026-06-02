@@ -199,6 +199,21 @@
     <string name="settings_threads_value_auto_short">自动</string>
     <string name="settings_threads_value_count_short">%1$d</string>
     <string name="settings_threads_hint">用于 Whisper 转写。线程越多速度越快，但发热与功耗会上升。设备长时间高负载可能因过热降频，那时减少线程反而更稳。</string>
+    <!-- Compute backend (GPU acceleration) — see docs/GPU_SUPPORT_PLAN.md -->
+    <string name="settings_section_compute">计算后端</string>
+    <string name="settings_compute_title">Whisper 推理使用</string>
+    <string name="settings_compute_auto">自动</string>
+    <string name="settings_compute_auto_desc">设备支持时优先使用 GPU，否则回退至 CPU</string>
+    <string name="settings_compute_cpu">仅 CPU</string>
+    <string name="settings_compute_cpu_desc">最稳定。任何设备都可用</string>
+    <string name="settings_compute_gpu">使用 GPU</string>
+    <string name="settings_compute_gpu_desc">速度更快但功耗更高，需要兼容的 Vulkan GPU</string>
+    <string name="settings_compute_gpu_unsupported">本设备不支持</string>
+    <string name="settings_compute_hint">GPU 加速通过 Vulkan 跑 Whisper 编/解码。部分老旧驱动可能输出错误结果，遇到异常请切换回 CPU。</string>
+    <string name="settings_summary_compute_auto">自动（%1$s）</string>
+    <string name="settings_summary_compute_cpu">CPU</string>
+    <string name="settings_summary_compute_gpu">GPU（%1$s）</string>
+    <string name="error_gpu_init_failed_falling_back">GPU 初始化失败，已回退至 CPU</string>
     <string name="settings_section_cache">缓存</string>
     <string name="settings_clear_cache">清理任务缓存</string>
     <string name="settings_clear_cache_hint">删除已生成的中间文件（音频/字幕草稿/临时视频），不影响已下载模型。</string>

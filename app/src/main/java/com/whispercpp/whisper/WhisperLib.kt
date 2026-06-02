@@ -15,6 +15,28 @@ internal object WhisperLib {
     }
 
     external fun initContext(modelPath: String): Long
+
+    /**
+     * Like [initContext] but lets the caller route inference through a GPU
+     * backend if one was compiled into libwhisper.so. Returns 0 on failure
+     * (e.g. driver init failed, OOM); callers should fall back to CPU. See
+     * `docs/GPU_SUPPORT_PLAN.md` §4.
+     */
+    external fun initContextWithParams(modelPath: String, useGpu: Boolean): Long
+
+    /**
+     * True iff a non-CPU ggml backend reports at least one usable device. Cheap
+     * to call (no model load) — suitable for enabling/disabling the Settings UI
+     * radio.
+     */
+    external fun gpuAvailable(): Boolean
+
+    /**
+     * Human-readable description of the first GPU device, e.g.
+     * "Adreno (TM) 740". Empty string when no GPU is registered.
+     */
+    external fun gpuDeviceName(): String
+
     external fun freeContext(contextPtr: Long)
 
     external fun newState(): Long

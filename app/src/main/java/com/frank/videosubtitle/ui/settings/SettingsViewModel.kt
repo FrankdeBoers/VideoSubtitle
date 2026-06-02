@@ -13,6 +13,7 @@ import com.frank.videosubtitle.data.source.local.TencentCreds
 import com.frank.videosubtitle.data.source.local.TranslationCredentialsStore
 import com.frank.videosubtitle.data.source.local.YoudaoCreds
 import com.frank.videosubtitle.domain.engine.BurnMode
+import com.frank.videosubtitle.domain.engine.ComputeMode
 import com.frank.videosubtitle.domain.engine.SubtitleAlignment
 import com.frank.videosubtitle.domain.engine.SubtitleDisplay
 import com.frank.videosubtitle.domain.model.AppSettings
@@ -91,6 +92,7 @@ class SettingsViewModel(
     fun setMediaBackend(backend: MediaBackend) =
         viewModelScope.launch { settings.setMediaBackend(backend) }
     fun setThreadCount(value: Int) = viewModelScope.launch { settings.setThreadCount(value) }
+    fun setComputeMode(mode: ComputeMode) = viewModelScope.launch { settings.setComputeMode(mode) }
 
     fun setBaiduCreds(creds: BaiduCreds) {
         credentialsStore.setBaidu(creds)

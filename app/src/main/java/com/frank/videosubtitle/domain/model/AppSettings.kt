@@ -1,6 +1,7 @@
 package com.frank.videosubtitle.domain.model
 
 import com.frank.videosubtitle.domain.engine.BurnMode
+import com.frank.videosubtitle.domain.engine.ComputeMode
 import com.frank.videosubtitle.domain.engine.SubtitleAlignment
 import com.frank.videosubtitle.domain.engine.SubtitleDisplay
 
@@ -36,6 +37,12 @@ data class AppSettings(
      * orchestrator to `[1, availableProcessors()]`.
      */
     val threadCount: Int = THREAD_COUNT_AUTO,
+    /**
+     * Whether Whisper inference runs on the CPU, GPU, or picks at task start.
+     * Auto resolves to GPU when [com.whispercpp.whisper.WhisperLib.gpuAvailable]
+     * reports a usable backend, otherwise CPU. See `docs/GPU_SUPPORT_PLAN.md`.
+     */
+    val computeMode: ComputeMode = ComputeMode.Auto,
 ) {
     companion object {
         const val MIN_FONT_SIZE = 16

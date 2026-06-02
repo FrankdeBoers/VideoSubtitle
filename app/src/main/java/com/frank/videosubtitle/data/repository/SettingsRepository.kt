@@ -2,6 +2,7 @@ package com.frank.videosubtitle.data.repository
 
 import com.frank.videosubtitle.data.source.local.SettingsDataStore
 import com.frank.videosubtitle.domain.engine.BurnMode
+import com.frank.videosubtitle.domain.engine.ComputeMode
 import com.frank.videosubtitle.domain.engine.SubtitleAlignment
 import com.frank.videosubtitle.domain.engine.SubtitleDisplay
 import com.frank.videosubtitle.domain.model.AppSettings
@@ -37,6 +38,7 @@ interface SettingsRepository {
     suspend fun setTranslationProvider(provider: TranslationProvider)
     suspend fun setMediaBackend(backend: MediaBackend)
     suspend fun setThreadCount(value: Int)
+    suspend fun setComputeMode(mode: ComputeMode)
 }
 
 class DefaultSettingsRepository(
@@ -106,5 +108,8 @@ class DefaultSettingsRepository(
     }
     override suspend fun setThreadCount(value: Int) {
         dataStore.setThreadCount(value)
+    }
+    override suspend fun setComputeMode(mode: ComputeMode) {
+        dataStore.setComputeMode(mode)
     }
 }

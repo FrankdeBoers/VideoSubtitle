@@ -10,9 +10,11 @@ import com.frank.videosubtitle.R
 import com.frank.videosubtitle.databinding.FragmentSettingsBinding
 import com.frank.videosubtitle.databinding.ViewSettingsRowBinding
 import com.frank.videosubtitle.domain.engine.BurnMode
+import com.frank.videosubtitle.domain.engine.ComputeMode
 import com.frank.videosubtitle.domain.model.AppSettings
 import com.frank.videosubtitle.domain.model.MediaBackend
 import com.frank.videosubtitle.ui.common.BaseFragment
+import com.whispercpp.whisper.WhisperLib
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.activityViewModel
 
@@ -40,6 +42,9 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>(FragmentSettingsB
         binding.rowThreads.root.setOnClickListener {
             nav.navigate(SettingsFragmentDirections.actionSettingsToThreads())
         }
+        binding.rowCompute.root.setOnClickListener {
+            nav.navigate(SettingsFragmentDirections.actionSettingsToCompute())
+        }
         binding.rowStyle.root.setOnClickListener {
             nav.navigate(SettingsFragmentDirections.actionSettingsToStyle())
         }
@@ -62,6 +67,7 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>(FragmentSettingsB
         binding.rowTranslate.bind(R.drawable.ic_setting_translate, R.string.settings_section_translate)
         binding.rowLanguage.bind(R.drawable.ic_setting_language, R.string.settings_section_language)
         binding.rowThreads.bind(R.drawable.ic_setting_threads, R.string.settings_section_threads)
+        binding.rowCompute.bind(R.drawable.ic_setting_compute, R.string.settings_section_compute)
         binding.rowStyle.bind(R.drawable.ic_setting_style, R.string.settings_section_style)
         binding.rowOutput.bind(R.drawable.ic_setting_output, R.string.settings_section_output)
         binding.rowCache.bind(R.drawable.ic_setting_cache, R.string.settings_section_cache)
@@ -101,6 +107,34 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>(FragmentSettingsB
             format,
             backend,
         )
+        binding.rowCompute.subtitle.text = computeSummary(s.computeMode)
+    }
+
+    private fun computeSummary(mode: ComputeMode): String {
+        // Probe lazily — `gpuAvailable()` is cheap (no model load) and the
+        // device's GPU can't change without an app restart.
+        val available = runCatching { WhisperLib.gpuAvailable() }.getOrDefault(false)
+        val gpuName = if (available) {
+            runCatching { WhisperLib.gpuDeviceName() }.getOrNull()?.takeIf { it.isNotEmpty() }
+        } else {
+            null
+        }
+        return when (mode) {
+            ComputeMode.Cpu -> getString(R.string.settings_summary_compute_cpu)
+            ComputeMode.Gpu -> if (gpuName != null) {
+                getString(R.string.settings_summary_compute_gpu, gpuName)
+            } else {
+                getString(R.string.settings_compute_gpu)
+            }
+            ComputeMode.Auto -> {
+                val resolved = if (available) {
+                    gpuName ?: getString(R.string.settings_compute_gpu)
+                } else {
+                    getString(R.string.settings_summary_compute_cpu)
+                }
+                getString(R.string.settings_summary_compute_auto, resolved)
+            }
+        }
     }
 
     private fun ViewSettingsRowBinding.bind(iconRes: Int, titleRes: Int) {

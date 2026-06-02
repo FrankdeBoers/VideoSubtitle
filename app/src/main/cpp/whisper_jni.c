@@ -16,6 +16,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include "whisper.h"
+#include "ggml-backend.h"
+
+// Forward decls of the C++ safety shims in whisper_safe.cpp. They funnel
+// Vulkan-Hpp / std exceptions into stable rc values so this pure-C JNI
+// layer can't be unwound past by an exception (which would otherwise
+// abort the process — the Vulkan backend's vk::Queue::submit can throw
+// vk::DeviceLostError mid-graph).
+extern int whisper_full_safe(struct whisper_context *ctx,
+                             struct whisper_full_params params,
+                             const float *samples, int n_samples);
+extern struct whisper_context *whisper_init_safe(const char *model_path,
+                                                 struct whisper_context_params cparams);
 
 #define TAG "WhisperJni"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  TAG, __VA_ARGS__)
@@ -41,15 +53,72 @@ static bool abort_cb(void *user_data) {
     return extras && extras->aborted != 0;
 }
 
+// Internal helper: open a context with the requested params. Returns 0
+// (which Kotlin reads as a null context) on failure so callers can fall back.
+static jlong init_context_internal(JNIEnv *env, jstring model_path_str, jboolean use_gpu) {
+    const char *model_path_chars = (*env)->GetStringUTFChars(env, model_path_str, NULL);
+    struct whisper_context_params cparams = whisper_context_default_params();
+    cparams.use_gpu = use_gpu ? true : false;
+    // gpu_device defaults to 0; first-discovered device is fine until we
+    // expose multi-GPU selection (none of our target SoCs ship >1 GPU).
+    struct whisper_context *context = whisper_init_safe(model_path_chars, cparams);
+    (*env)->ReleaseStringUTFChars(env, model_path_str, model_path_chars);
+    if (!context) {
+        LOGW("whisper_init_from_file_with_params failed (use_gpu=%d)", (int)cparams.use_gpu);
+    }
+    return (jlong) context;
+}
+
 JNIEXPORT jlong JNICALL
 Java_com_whispercpp_whisper_WhisperLib_initContext(
         JNIEnv *env, jobject thiz, jstring model_path_str) {
     (void)thiz;
-    const char *model_path_chars = (*env)->GetStringUTFChars(env, model_path_str, NULL);
-    struct whisper_context *context = whisper_init_from_file_with_params(
-            model_path_chars, whisper_context_default_params());
-    (*env)->ReleaseStringUTFChars(env, model_path_str, model_path_chars);
-    return (jlong) context;
+    return init_context_internal(env, model_path_str, JNI_FALSE);
+}
+
+// Companion variant that lets the host pick a backend. We keep both symbols
+// for source compatibility per the comment at the top of this file.
+JNIEXPORT jlong JNICALL
+Java_com_whispercpp_whisper_WhisperLib_initContextWithParams(
+        JNIEnv *env, jobject thiz, jstring model_path_str, jboolean use_gpu) {
+    (void)thiz;
+    return init_context_internal(env, model_path_str, use_gpu);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_whispercpp_whisper_WhisperLib_gpuAvailable(JNIEnv *env, jobject thiz) {
+    (void)env; (void)thiz;
+    // ggml-backend-reg returns the count of registered devices across all
+    // compiled-in backends. On a CPU-only build this is 1 (the CPU backend);
+    // a Vulkan/OpenCL build that found a usable device exposes 2+.
+    //
+    // We can't link against the per-backend probes (e.g. ggml_backend_vk_get_device_count)
+    // until the corresponding source is vendored — so we use the generic
+    // device-count API and treat "more than CPU" as "GPU available."
+    size_t count = ggml_backend_dev_count();
+    for (size_t i = 0; i < count; ++i) {
+        ggml_backend_dev_t dev = ggml_backend_dev_get(i);
+        if (!dev) continue;
+        if (ggml_backend_dev_type(dev) == GGML_BACKEND_DEVICE_TYPE_GPU) {
+            return JNI_TRUE;
+        }
+    }
+    return JNI_FALSE;
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_whispercpp_whisper_WhisperLib_gpuDeviceName(JNIEnv *env, jobject thiz) {
+    (void)thiz;
+    size_t count = ggml_backend_dev_count();
+    for (size_t i = 0; i < count; ++i) {
+        ggml_backend_dev_t dev = ggml_backend_dev_get(i);
+        if (!dev) continue;
+        if (ggml_backend_dev_type(dev) == GGML_BACKEND_DEVICE_TYPE_GPU) {
+            const char *name = ggml_backend_dev_description(dev);
+            return (*env)->NewStringUTF(env, name ? name : "");
+        }
+    }
+    return (*env)->NewStringUTF(env, "");
 }
 
 JNIEXPORT void JNICALL
@@ -145,7 +214,7 @@ Java_com_whispercpp_whisper_WhisperLib_fullTranscribe(
          params.language, prompt ? prompt : "(none)", params.n_threads,
          (int)translate, (int)audio_len);
 
-    int rc = whisper_full(context, params, audio, audio_len);
+    int rc = whisper_full_safe(context, params, audio, audio_len);
 
     if (language) (*env)->ReleaseStringUTFChars(env, language_str, language);
     if (prompt)   (*env)->ReleaseStringUTFChars(env, prompt_str, prompt);
@@ -155,7 +224,11 @@ Java_com_whispercpp_whisper_WhisperLib_fullTranscribe(
         LOGW("fullTranscribe: aborted by host (rc=%d)", rc);
         return -1;
     }
-    if (rc != 0) {
+    if (rc == -2) {
+        LOGW("fullTranscribe: GPU runtime exception — caller should retry on CPU");
+    } else if (rc == -3) {
+        LOGE("fullTranscribe: unrecoverable C++ exception during inference");
+    } else if (rc != 0) {
         LOGE("fullTranscribe: whisper_full failed rc=%d", rc);
     } else if (extras) {
         extras->progress = 100;
