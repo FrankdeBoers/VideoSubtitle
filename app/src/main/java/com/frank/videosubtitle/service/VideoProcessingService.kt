@@ -18,6 +18,8 @@ import com.frank.videosubtitle.data.orchestrator.TaskOrchestrator
 import com.frank.videosubtitle.data.repository.TaskRepository
 import com.frank.videosubtitle.domain.model.TaskStage
 import com.frank.videosubtitle.domain.model.TaskState
+import com.frank.videosubtitle.domain.model.isInProgress
+import com.frank.videosubtitle.ui.common.label
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -140,7 +142,7 @@ class VideoProcessingService : Service() {
             activeTitle = active.video.displayName,
             percent = active.stage.progressPercent(),
             taskId = active.id,
-            stageText = stageText(active.stage),
+            stageText = active.stage.label(this),
         )
 
     private fun buildNotification(
@@ -187,17 +189,6 @@ class VideoProcessingService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT
         }
 
-    private fun stageText(stage: TaskStage): String = when (stage) {
-        is TaskStage.Extracting -> getString(R.string.task_stage_extracting, stage.percent)
-        is TaskStage.Transcribing -> getString(R.string.task_stage_transcribing, stage.percent)
-        is TaskStage.Translating -> getString(R.string.task_stage_translating, stage.percent)
-        is TaskStage.Burning -> getString(R.string.task_stage_burning, stage.percent)
-        TaskStage.Editing -> getString(R.string.task_stage_editing)
-        is TaskStage.Done -> getString(R.string.task_stage_done)
-        is TaskStage.Failed -> getString(R.string.task_stage_failed, stage.reason)
-        TaskStage.Idle -> getString(R.string.task_stage_idle)
-    }
-
     private fun TaskStage.progressPercent(): Int? = when (this) {
         is TaskStage.Extracting -> percent
         is TaskStage.Transcribing -> percent
@@ -222,13 +213,4 @@ class VideoProcessingService : Service() {
             }
         }
     }
-}
-
-private fun TaskStage.isInProgress(): Boolean = when (this) {
-    is TaskStage.Extracting,
-    is TaskStage.Transcribing,
-    is TaskStage.Translating,
-    is TaskStage.Burning,
-    -> true
-    else -> false
 }

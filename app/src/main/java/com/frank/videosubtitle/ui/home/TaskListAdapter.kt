@@ -12,6 +12,8 @@ import com.frank.videosubtitle.R
 import com.frank.videosubtitle.databinding.ItemTaskBinding
 import com.frank.videosubtitle.domain.model.TaskStage
 import com.frank.videosubtitle.domain.model.TaskState
+import com.frank.videosubtitle.domain.model.isInProgress
+import com.frank.videosubtitle.ui.common.label
 import java.io.File
 
 class TaskListAdapter(
@@ -34,7 +36,7 @@ class TaskListAdapter(
     fun tick(now: Long) {
         nowMs = now
         if (itemCount == 0) return
-        if (currentList.any { it.stage.isActive() }) {
+        if (currentList.any { it.stage.isInProgress() }) {
             notifyItemRangeChanged(0, itemCount, PAYLOAD_TICK)
         }
     }
@@ -65,7 +67,7 @@ class TaskListAdapter(
                 R.string.task_video_duration,
                 formatDuration(ctx, task.video.durationMs),
             )
-            binding.stage.text = formatStage(ctx, task.stage)
+            binding.stage.text = task.stage.label(ctx)
             bindCostTime(task)
             val thumb = task.video.thumbnailPath?.let(::File)
             if (thumb != null && thumb.exists()) {
@@ -94,7 +96,7 @@ class TaskListAdapter(
             val start = task.processingStartedAt
             val elapsed = when {
                 start == null -> 0L
-                task.stage.isActive() -> (nowMs - start).coerceAtLeast(0L)
+                task.stage.isInProgress() -> (nowMs - start).coerceAtLeast(0L)
                 else -> (task.updatedAt - start).coerceAtLeast(0L)
             }
             val showCost = start != null && task.stage !is TaskStage.Idle && elapsed >= 1_000L
@@ -118,17 +120,6 @@ class TaskListAdapter(
         else ctx.getString(R.string.duration_ms, m, s)
     }
 
-    private fun formatStage(ctx: android.content.Context, stage: TaskStage): String = when (stage) {
-        TaskStage.Idle -> ctx.getString(R.string.task_stage_idle)
-        is TaskStage.Extracting -> ctx.getString(R.string.task_stage_extracting, stage.percent)
-        is TaskStage.Transcribing -> ctx.getString(R.string.task_stage_transcribing, stage.percent)
-        is TaskStage.Translating -> ctx.getString(R.string.task_stage_translating, stage.percent)
-        TaskStage.Editing -> ctx.getString(R.string.task_stage_editing)
-        is TaskStage.Burning -> ctx.getString(R.string.task_stage_burning, stage.percent)
-        is TaskStage.Done -> ctx.getString(R.string.task_stage_done)
-        is TaskStage.Failed -> ctx.getString(R.string.task_stage_failed, stage.reason)
-    }
-
     companion object {
         private const val PAYLOAD_SELECTION = "selection"
         private const val PAYLOAD_TICK = "tick"
@@ -136,10 +127,5 @@ class TaskListAdapter(
             override fun areItemsTheSame(oldItem: TaskState, newItem: TaskState) = oldItem.id == newItem.id
             override fun areContentsTheSame(oldItem: TaskState, newItem: TaskState) = oldItem == newItem
         }
-
-        private fun TaskStage.isActive(): Boolean = this is TaskStage.Extracting ||
-            this is TaskStage.Transcribing ||
-            this is TaskStage.Translating ||
-            this is TaskStage.Burning
     }
 }

@@ -19,8 +19,8 @@ import com.frank.videosubtitle.domain.model.AppSettings
 import com.frank.videosubtitle.domain.model.LanguagePref
 import com.frank.videosubtitle.domain.model.MediaBackend
 import com.frank.videosubtitle.domain.model.SubtitleColor
-import com.frank.videosubtitle.domain.model.TaskStage
 import com.frank.videosubtitle.domain.model.TranslationProvider
+import com.frank.videosubtitle.domain.model.isInProgress
 import com.frank.videosubtitle.domain.model.VideoPreset
 import com.frank.videosubtitle.domain.model.WhisperModel
 import kotlinx.coroutines.Dispatchers
@@ -175,15 +175,6 @@ class SettingsViewModel(
     sealed class Effect {
         data object CacheCleared : Effect()
         data object CacheBlocked : Effect()
-    }
-
-    private fun TaskStage.isInProgress(): Boolean = when (this) {
-        is TaskStage.Extracting,
-        is TaskStage.Transcribing,
-        is TaskStage.Translating,
-        is TaskStage.Burning,
-        -> true
-        else -> false
     }
 }
 

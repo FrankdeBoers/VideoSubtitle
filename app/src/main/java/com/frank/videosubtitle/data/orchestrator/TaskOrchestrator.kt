@@ -222,11 +222,11 @@ class TaskOrchestrator(
         }
         taskRepository.update(current.copy(stage = TaskStage.Burning(0)))
 
-        // For HARD burn, force mp4 output. For SOFT, keep mp4 only — softMux requires mov_text.
-        val ext = "mp4"
+        // mp4 is the only supported output container — HARD re-encodes via libx264 and
+        // SOFT requires mov_text which is mp4-only.
         val baseName = displayName.substringBeforeLast('.', displayName)
             .ifBlank { "subtitled_${taskId.take(8)}" }
-        val intermediate = File(taskDir, "output.$ext")
+        val intermediate = File(taskDir, "output.mp4")
 
         var failed = false
         burnSubtitles(source, srt, intermediate, durationMs, options)
@@ -243,9 +243,10 @@ class TaskOrchestrator(
             }
         if (failed) return
 
-        val finalName = uniqueDisplayName("${baseName}_subtitled.$ext")
-        val mime = if (ext == "mp4" || ext == "m4v") "video/mp4" else "video/${ext}"
-        val saved = runCatching { mediaStoreSaver.saveToMovies(intermediate, finalName, mime) }
+        // MediaStore on Android Q+ auto-suffixes display-name collisions ((1), (2), …);
+        // pre-Q falls back to FileProvider over a path that includes the taskId so it's unique by construction.
+        val finalName = "${baseName}_subtitled.mp4"
+        val saved = runCatching { mediaStoreSaver.saveToMovies(intermediate, finalName, "video/mp4") }
             .onFailure { Timber.e(it, "MediaStore save failed") }
         if (saved.isSuccess) {
             val uri = saved.getOrThrow()
@@ -257,8 +258,6 @@ class TaskOrchestrator(
             taskRepository.update(now.copy(stage = TaskStage.Failed(msg)))
         }
     }
-
-    private fun uniqueDisplayName(name: String): String = name
 
     private fun AppSettings.toBurnOptions(): BurnOptions {
         val mainOutline = if (outline) DEFAULT_OUTLINE_WIDTH else 0

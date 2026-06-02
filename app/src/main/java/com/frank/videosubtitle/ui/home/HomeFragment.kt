@@ -15,9 +15,15 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.frank.videosubtitle.R
 import com.frank.videosubtitle.databinding.FragmentHomeBinding
+import com.frank.videosubtitle.domain.model.isInProgress
 import com.frank.videosubtitle.ui.common.BaseFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import timber.log.Timber
@@ -80,12 +86,23 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>(FragmentHomeBinding::infl
             }
         }
 
+        // Cost-time ticker: only loops while at least one task is in-progress.
+        // distinctUntilChanged + collectLatest cancels the inner loop the moment
+        // the gate flips back to false, so an idle list does no work.
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) {
-                    adapter.tick(System.currentTimeMillis())
-                    delay(1_000L)
-                }
+                viewModel.uiState
+                    .map { state -> state.tasks.any { it.stage.isInProgress() } }
+                    .distinctUntilChanged()
+                    .collectLatest { hasActive ->
+                        if (!hasActive) return@collectLatest
+                        coroutineScope {
+                            while (isActive) {
+                                adapter.tick(System.currentTimeMillis())
+                                delay(1_000L)
+                            }
+                        }
+                    }
             }
         }
     }

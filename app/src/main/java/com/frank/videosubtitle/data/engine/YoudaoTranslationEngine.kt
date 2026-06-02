@@ -14,7 +14,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.MessageDigest
 import java.util.UUID
 
 /**
@@ -111,18 +110,7 @@ class YoudaoTranslationEngine(
         else -> tag.substringBefore('-').lowercase()
     }
 
-    private fun sha256Hex(input: String): String {
-        val md = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
-        val sb = StringBuilder(md.size * 2)
-        for (b in md) {
-            sb.append(HEX[(b.toInt() ushr 4) and 0x0f])
-            sb.append(HEX[b.toInt() and 0x0f])
-        }
-        return sb.toString()
-    }
-
     private companion object {
         const val ENDPOINT = "https://openapi.youdao.com/api"
-        val HEX = "0123456789abcdef".toCharArray()
     }
 }

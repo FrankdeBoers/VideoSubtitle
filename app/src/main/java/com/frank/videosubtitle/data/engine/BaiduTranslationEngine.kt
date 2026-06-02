@@ -13,7 +13,6 @@ import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
-import java.security.MessageDigest
 
 /**
  * Baidu Translate (通用翻译 API). Free tier: ~50K chars/month, 1 QPS.
@@ -100,18 +99,7 @@ class BaiduTranslationEngine(
         else -> tag.substringBefore('-').lowercase()
     }
 
-    private fun md5Hex(input: String): String {
-        val md = MessageDigest.getInstance("MD5").digest(input.toByteArray(Charsets.UTF_8))
-        val sb = StringBuilder(md.size * 2)
-        for (b in md) {
-            sb.append(HEX[(b.toInt() ushr 4) and 0x0f])
-            sb.append(HEX[b.toInt() and 0x0f])
-        }
-        return sb.toString()
-    }
-
     private companion object {
         const val ENDPOINT = "https://fanyi-api.baidu.com/api/trans/vip/translate"
-        val HEX = "0123456789abcdef".toCharArray()
     }
 }

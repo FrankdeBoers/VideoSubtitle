@@ -66,7 +66,7 @@ val dataModule = module {
     single { TranslationCredentialsStore(androidContext()) }
 
     single { FFmpegKitEngine() }
-    single { Media3TransformerEngine(androidContext()) }
+    single { Media3TransformerEngine(androidContext(), get()) }
     single {
         RoutingMediaEngine(
             ffmpeg = get(),

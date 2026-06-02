@@ -14,7 +14,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -155,7 +154,7 @@ class TencentTranslationEngine(
         val secretDate = hmacSha256(("TC3$secretKey").toByteArray(Charsets.UTF_8), date)
         val secretService = hmacSha256(secretDate, SERVICE)
         val secretSigning = hmacSha256(secretService, "tc3_request")
-        val signature = hexEncode(hmacSha256(secretSigning, stringToSign))
+        val signature = hmacSha256(secretSigning, stringToSign).toHexLower()
 
         // Step 4: assemble the Authorization header
         return "TC3-HMAC-SHA256 Credential=$secretId/$credentialScope, " +
@@ -185,20 +184,6 @@ class TencentTranslationEngine(
         return mac.doFinal(data.toByteArray(Charsets.UTF_8))
     }
 
-    private fun sha256Hex(input: String): String {
-        val md = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
-        return hexEncode(md)
-    }
-
-    private fun hexEncode(bytes: ByteArray): String {
-        val sb = StringBuilder(bytes.size * 2)
-        for (b in bytes) {
-            sb.append(HEX[(b.toInt() ushr 4) and 0x0f])
-            sb.append(HEX[b.toInt() and 0x0f])
-        }
-        return sb.toString()
-    }
-
     private companion object {
         const val ENDPOINT = "https://tmt.tencentcloudapi.com/"
         const val HOST = "tmt.tencentcloudapi.com"
@@ -206,6 +191,5 @@ class TencentTranslationEngine(
         const val ACTION = "TextTranslate"
         const val VERSION = "2018-03-21"
         val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
-        val HEX = "0123456789abcdef".toCharArray()
     }
 }

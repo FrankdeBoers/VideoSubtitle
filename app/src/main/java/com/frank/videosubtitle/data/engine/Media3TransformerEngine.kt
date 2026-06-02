@@ -31,6 +31,7 @@ import com.frank.videosubtitle.domain.engine.FFmpegEngine
 import com.frank.videosubtitle.domain.engine.FfmpegException
 import com.frank.videosubtitle.domain.engine.FfmpegProgress
 import com.frank.videosubtitle.domain.engine.SubtitleAlignment
+import com.frank.videosubtitle.util.DispatcherProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -40,6 +41,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -69,6 +71,7 @@ import java.nio.ByteOrder
 @UnstableApi
 class Media3TransformerEngine(
     private val context: Context,
+    private val dispatchers: DispatcherProvider,
 ) : FFmpegEngine {
 
     override fun extractAudio(
@@ -100,12 +103,13 @@ class Media3TransformerEngine(
                 start()
             }
 
-            raf = RandomAccessFile(output, "rw").apply {
+            val pcmFile = RandomAccessFile(output, "rw").apply {
                 // Reserve 44 bytes; we patch the header in the finally block
                 // once we know the PCM byte count.
                 setLength(0)
                 write(ByteArray(WAV_HEADER_BYTES))
             }
+            raf = pcmFile
 
             val info = MediaCodec.BufferInfo()
             val timeoutUs = 10_000L
@@ -143,7 +147,7 @@ class Media3TransformerEngine(
                         val pcmShorts = ShortArray(info.size / 2)
                         outBuf.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(pcmShorts)
                         val written = writeResampledMono(
-                            raf!!,
+                            pcmFile,
                             pcmShorts,
                             srcChannels,
                             srcSampleRate,
@@ -168,7 +172,7 @@ class Media3TransformerEngine(
                 }
             }
             // Patch the WAV header now that we know the PCM byte count.
-            patchWavHeader(raf!!, totalBytes, channels = 1, sampleRate = TARGET_SAMPLE_RATE)
+            patchWavHeader(pcmFile, totalBytes, channels = 1, sampleRate = TARGET_SAMPLE_RATE)
             emit(FfmpegProgress(100, durationMs, totalBytes + WAV_HEADER_BYTES, 1.0))
         } catch (t: Throwable) {
             runCatching { output.delete() }
@@ -181,7 +185,7 @@ class Media3TransformerEngine(
             runCatching { codec?.release() }
             runCatching { extractor.release() }
         }
-    }
+    }.flowOn(dispatchers.io)
 
     override fun burnSubtitles(
         video: File,
@@ -352,8 +356,34 @@ internal class SrtBitmapOverlay(
     private val transparent: Bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888).also {
         it.eraseColor(Color.TRANSPARENT)
     }
-    private val bitmapCache = HashMap<Int, Bitmap>(cues.size)
+
+    /**
+     * LRU bitmap cache. ARGB_8888 cue bitmaps can be 100s of KB each; an
+     * unbounded cache over a long video (1000+ cues) holds tens of MB live and
+     * triggers OOM on low-RAM devices. The window only needs to cover cues
+     * recently rendered around the cursor — Transformer never seeks backward.
+     */
+    private val bitmapCache: LinkedHashMap<Int, Bitmap> =
+        object : LinkedHashMap<Int, Bitmap>(BITMAP_CACHE_MAX, 0.75f, /* accessOrder = */ true) {
+            override fun removeEldestEntry(eldest: Map.Entry<Int, Bitmap>): Boolean {
+                if (size > BITMAP_CACHE_MAX) {
+                    eldest.value.recycle()
+                    return true
+                }
+                return false
+            }
+        }
+    // Settings is per-cue but tiny + immutable; keep as plain map.
     private val settingsCache = HashMap<Int, OverlaySettings>(cues.size)
+
+    /**
+     * Monotonic-cursor cue lookup. Transformer feeds [presentationTimeUs] in
+     * non-decreasing order, so we only need to advance the cursor — the linear
+     * scan that used to run per frame is now O(1) amortized over the whole
+     * video. Falls back to a fresh forward scan if the caller ever rewinds
+     * (e.g. a future seek-aware overlay use).
+     */
+    private var cursor = 0
 
     override fun getBitmap(presentationTimeUs: Long): Bitmap {
         val ms = presentationTimeUs / 1000
@@ -368,13 +398,16 @@ internal class SrtBitmapOverlay(
     }
 
     private fun activeCueIndex(ms: Long): Int? {
-        // Linear scan — cue list is typically <500 entries for a long video.
-        // If this becomes a bottleneck, swap for binary search by startMs.
-        for (i in cues.indices) {
-            val c = cues[i]
-            if (ms >= c.startMs && ms <= c.endMs) return i
+        if (cues.isEmpty()) return null
+        // Rewind only if the caller went backward past the previous cue's start;
+        // the common case (forward playback) keeps `cursor` monotonic.
+        if (cursor >= cues.size || ms < cues[cursor].startMs) {
+            cursor = 0
         }
-        return null
+        while (cursor < cues.size && ms > cues[cursor].endMs) cursor++
+        if (cursor >= cues.size) return null
+        val c = cues[cursor]
+        return if (ms in c.startMs..c.endMs) cursor else null
     }
 
     private fun renderCue(cue: SrtCue): Bitmap {
@@ -479,6 +512,9 @@ internal class SrtBitmapOverlay(
         // because Canvas paints in pixels. 2.0 matches the Roboto rendering
         // FFmpeg/libass produces at the same Fontsize.
         private const val TEXT_DENSITY_SCALE = 2.0f
+        // Bitmap cache window — covers a few seconds of cues around the cursor.
+        // Each entry can be a few hundred KB; 16 keeps the live set bounded.
+        private const val BITMAP_CACHE_MAX = 16
         private val DEFAULT_SETTINGS: OverlaySettings = OverlaySettings.Builder().build()
     }
 }

@@ -18,6 +18,7 @@ import com.frank.videosubtitle.R
 import com.frank.videosubtitle.databinding.FragmentProgressBinding
 import com.frank.videosubtitle.domain.model.TaskStage
 import com.frank.videosubtitle.ui.common.BaseFragment
+import com.frank.videosubtitle.ui.common.label
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.parameter.parametersOf
@@ -154,16 +155,14 @@ class ProgressFragment : BaseFragment<FragmentProgressBinding>(FragmentProgressB
 
     private fun stageLabel(state: ProgressUiState): String {
         val ctx = requireContext()
-        return when (val s = state.task?.stage) {
-            null, TaskStage.Idle -> ctx.getString(R.string.task_stage_idle)
-            is TaskStage.Extracting -> if (s.percent >= 100) ctx.getString(R.string.progress_audio_ready)
-                else ctx.getString(R.string.task_stage_extracting, s.percent)
-            is TaskStage.Transcribing -> ctx.getString(R.string.task_stage_transcribing, s.percent)
-            is TaskStage.Translating -> ctx.getString(R.string.task_stage_translating, s.percent)
-            TaskStage.Editing -> ctx.getString(R.string.progress_subtitle_ready)
-            is TaskStage.Burning -> ctx.getString(R.string.task_stage_burning, s.percent)
-            is TaskStage.Done -> ctx.getString(R.string.task_stage_done)
-            is TaskStage.Failed -> ctx.getString(R.string.task_stage_failed, s.reason)
+        val stage = state.task?.stage ?: return ctx.getString(R.string.task_stage_idle)
+        // Two progress-screen overrides over the shared label: the audio-ready
+        // beat at the end of extraction, and the editor-ready beat at Editing.
+        return when {
+            stage is TaskStage.Extracting && stage.percent >= 100 ->
+                ctx.getString(R.string.progress_audio_ready)
+            stage is TaskStage.Editing -> ctx.getString(R.string.progress_subtitle_ready)
+            else -> stage.label(ctx)
         }
     }
 
