@@ -15,6 +15,14 @@ enum class WhisperModel(
     val speedTier: Int,
     /** 1 = lowest accuracy, 3 = best. Relative WER, used for UI dots. */
     val qualityTier: Int,
+    /** Parameter count in millions (from the OpenAI Whisper paper). */
+    val paramsMillions: Int,
+    /** Number of decoder layers. */
+    val layers: Int,
+    /** Hidden state width / model dimension. */
+    val width: Int,
+    /** Number of attention heads. */
+    val heads: Int,
 ) {
     Tiny(
         fileName = "ggml-tiny.bin",
@@ -22,6 +30,10 @@ enum class WhisperModel(
         sha256 = "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
         speedTier = 3,
         qualityTier = 1,
+        paramsMillions = 39,
+        layers = 4,
+        width = 384,
+        heads = 6,
     ),
     Base(
         fileName = "ggml-base.bin",
@@ -29,6 +41,10 @@ enum class WhisperModel(
         sha256 = "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
         speedTier = 2,
         qualityTier = 2,
+        paramsMillions = 74,
+        layers = 6,
+        width = 512,
+        heads = 8,
     ),
     Small(
         fileName = "ggml-small.bin",
@@ -36,6 +52,10 @@ enum class WhisperModel(
         sha256 = "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
         speedTier = 1,
         qualityTier = 3,
+        paramsMillions = 244,
+        layers = 12,
+        width = 768,
+        heads = 12,
     );
 
     val downloadUrl: String

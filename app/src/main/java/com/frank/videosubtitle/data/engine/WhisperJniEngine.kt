@@ -55,12 +55,34 @@ class WhisperJniEngine(
         )
 
         val progressJob: Job = scope.launch {
-            var last = -1
+            // whisper.cpp emits native progress in coarse jumps (e.g. 36% then
+            // 69%) once each internal chunk completes, so the bar appears
+            // frozen for tens of seconds. We smooth it: between native bumps,
+            // tick the displayed value up by 1% every 5s, capped at
+            // lastNative + 10 (and 99) so we never overshoot the next real jump
+            // by much and never claim "done".
+            var lastNative = -1
+            var displayed = 0
+            var ticksSinceBump = 0
+            val ticksPerNudge = 20 // 20 * 250ms = 5s
+            val nudgeHeadroom = 10
             while (isActive) {
-                val p = WhisperLib.readProgress(statePtr)
-                if (p != last) {
-                    last = p
-                    trySend(TranscribeEvent.Progress(p.coerceIn(0, 100)))
+                val p = WhisperLib.readProgress(statePtr).coerceIn(0, 100)
+                if (p > lastNative) {
+                    lastNative = p
+                    ticksSinceBump = 0
+                    if (p > displayed) {
+                        displayed = p
+                        trySend(TranscribeEvent.Progress(displayed))
+                    }
+                } else {
+                    ticksSinceBump++
+                    val cap = (lastNative + nudgeHeadroom).coerceAtMost(99)
+                    if (ticksSinceBump >= ticksPerNudge && displayed < cap) {
+                        displayed++
+                        ticksSinceBump = 0
+                        trySend(TranscribeEvent.Progress(displayed))
+                    }
                 }
                 delay(250)
             }

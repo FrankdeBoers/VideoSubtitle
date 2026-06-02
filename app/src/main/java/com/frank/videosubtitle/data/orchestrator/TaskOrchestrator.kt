@@ -285,6 +285,14 @@ class TaskOrchestrator(
         )
     }
 
+    // Use every online core the device exposes for whisper. ggml is fully
+    // compute-bound and scales near-linearly with threads on big.LITTLE arm64
+    // up to the physical core count; oversubscription beyond availableProcessors
+    // hurts. availableProcessors() reflects currently-online cores at call time,
+    // which is what we want — read once when transcription kicks off.
+    private fun whisperThreadCount(): Int =
+        Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+
     private fun hasEnoughSpace(dir: File?, neededBytes: Long): Boolean {
         val target = dir ?: return true
         return runCatching {
@@ -310,7 +318,7 @@ class TaskOrchestrator(
             language = settings.language.whisperCode,
             translate = false,
             initialPrompt = settings.language.initialPrompt,
-            nThreads = 4,
+            nThreads = whisperThreadCount(),
         )
 
         var failed = false

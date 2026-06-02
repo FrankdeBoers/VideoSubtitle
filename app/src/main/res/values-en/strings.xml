@@ -112,6 +112,7 @@
     <string name="settings_model_small_desc">Best quality. More accurate but larger download and slower transcription.</string>
     <string name="settings_model_speed">Speed %1$s</string>
     <string name="settings_model_quality">Quality %1$s</string>
+    <string name="settings_model_params">%1$dM params · %2$d layers · width %3$d · %4$d heads</string>
     <string name="settings_model_status_missing">Not downloaded</string>
     <string name="settings_model_status_downloading">Downloading %1$d%% · %2$s / %3$s</string>
     <string name="settings_model_status_ready">Downloaded</string>

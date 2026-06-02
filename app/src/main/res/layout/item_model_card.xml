@@ -67,6 +67,15 @@
         </LinearLayout>
 
         <TextView
+            android:id="@+id/text_params"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="?android:attr/textColorSecondary"
+            tools:text="74M params · 6 layers · width 512 · 8 heads" />
+
+        <TextView
             android:id="@+id/text_desc"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

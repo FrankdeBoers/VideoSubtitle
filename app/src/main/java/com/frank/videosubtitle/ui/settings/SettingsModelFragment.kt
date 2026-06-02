@@ -52,6 +52,13 @@ class SettingsModelFragment :
             card.textDesc.text = getString(modelDescRes(model))
             card.textSpeed.text = getString(R.string.settings_model_speed, dots(model.speedTier, "⚡", "·"))
             card.textQuality.text = getString(R.string.settings_model_quality, dots(model.qualityTier, "★", "☆"))
+            card.textParams.text = getString(
+                R.string.settings_model_params,
+                model.paramsMillions,
+                model.layers,
+                model.width,
+                model.heads,
+            )
         }
 
         viewLifecycleOwner.lifecycleScope.launch {

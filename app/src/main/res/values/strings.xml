@@ -112,6 +112,7 @@
     <string name="settings_model_small_desc">质量优先。识别更准确，但下载更大、速度更慢。</string>
     <string name="settings_model_speed">速度 %1$s</string>
     <string name="settings_model_quality">质量 %1$s</string>
+    <string name="settings_model_params">%1$dM 参数 · %2$d 层 · 维度 %3$d · %4$d 头</string>
     <string name="settings_model_status_missing">未下载</string>
     <string name="settings_model_status_downloading">下载中 %1$d%% · %2$s / %3$s</string>
     <string name="settings_model_status_ready">已下载</string>
