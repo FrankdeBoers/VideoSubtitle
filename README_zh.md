@@ -4,6 +4,12 @@
 
 一款 Android 应用，提供离线一站式流水线：**从相册选择本地视频 → whisper.cpp 端侧识别 → 编辑字幕 → FFmpeg 合成 → 写入系统相册**。
 
+## 截图
+
+| 任务列表 | 设置 | 字幕样式 |
+| :---: | :---: | :---: |
+| <img src="./screenshot/home.png" width="240" alt="主页 — 任务列表" /> | <img src="./screenshot/setting.png" width="240" alt="设置" /> | <img src="./screenshot/setting_subtitle.png" width="240" alt="字幕样式编辑（带实时预览）" /> |
+
 ## 性能实测
 
 测试设备：三星 Galaxy S24 Ultra；视频时长：1 分 30 秒。

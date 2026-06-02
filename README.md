@@ -4,6 +4,12 @@
 
 An Android app for the offline pipeline **Pick a local video → transcribe with whisper.cpp on-device → edit subtitles → burn them back into the video with FFmpeg → save to the system gallery**. 
 
+## Screenshots
+
+| Task list | Settings | Subtitle style |
+| :---: | :---: | :---: |
+| <img src="./screenshot/home.png" width="240" alt="Home — task list" /> | <img src="./screenshot/setting.png" width="240" alt="Settings" /> | <img src="./screenshot/setting_subtitle.png" width="240" alt="Subtitle style editor with live preview" /> |
+
 ## Performance benchmark
 
 Measured on a Samsung Galaxy S24 Ultra with a 1:30 (1 min 30 s) source video:
