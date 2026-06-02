@@ -37,6 +37,9 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>(FragmentSettingsB
         binding.rowLanguage.root.setOnClickListener {
             nav.navigate(SettingsFragmentDirections.actionSettingsToLanguage())
         }
+        binding.rowThreads.root.setOnClickListener {
+            nav.navigate(SettingsFragmentDirections.actionSettingsToThreads())
+        }
         binding.rowStyle.root.setOnClickListener {
             nav.navigate(SettingsFragmentDirections.actionSettingsToStyle())
         }
@@ -58,6 +61,7 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>(FragmentSettingsB
         binding.rowModel.bind(R.drawable.ic_setting_model, R.string.settings_section_model)
         binding.rowTranslate.bind(R.drawable.ic_setting_translate, R.string.settings_section_translate)
         binding.rowLanguage.bind(R.drawable.ic_setting_language, R.string.settings_section_language)
+        binding.rowThreads.bind(R.drawable.ic_setting_threads, R.string.settings_section_threads)
         binding.rowStyle.bind(R.drawable.ic_setting_style, R.string.settings_section_style)
         binding.rowOutput.bind(R.drawable.ic_setting_output, R.string.settings_section_output)
         binding.rowCache.bind(R.drawable.ic_setting_cache, R.string.settings_section_cache)
@@ -68,8 +72,14 @@ class SettingsFragment : BaseFragment<FragmentSettingsBinding>(FragmentSettingsB
 
     private fun renderSubtitles(s: AppSettings) {
         val ctx = requireContext()
+        val maxCores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
         binding.rowModel.subtitle.text = getString(modelNameRes(s.model), formatBytes(s.model.sizeBytes))
         binding.rowLanguage.subtitle.text = ctx.languageLabel(s.language)
+        binding.rowThreads.subtitle.text = if (s.threadCount == 0) {
+            getString(R.string.settings_summary_threads_auto, maxCores)
+        } else {
+            getString(R.string.settings_summary_threads_count, s.threadCount.coerceAtMost(maxCores), maxCores)
+        }
         binding.rowTranslate.subtitle.text = if (s.translateToChinese) {
             ctx.providerLabel(s.translationProvider)
         } else {

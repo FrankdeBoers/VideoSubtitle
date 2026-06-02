@@ -41,6 +41,9 @@
         <action
             android:id="@+id/action_settings_to_cache"
             app:destination="@id/settingsCacheFragment" />
+        <action
+            android:id="@+id/action_settings_to_threads"
+            app:destination="@id/settingsThreadsFragment" />
     </fragment>
 
     <fragment
@@ -78,6 +81,12 @@
         android:name="com.frank.videosubtitle.ui.settings.SettingsCacheFragment"
         android:label="@string/settings_section_cache"
         tools:layout="@layout/fragment_settings_cache" />
+
+    <fragment
+        android:id="@+id/settingsThreadsFragment"
+        android:name="com.frank.videosubtitle.ui.settings.SettingsThreadsFragment"
+        android:label="@string/settings_section_threads"
+        tools:layout="@layout/fragment_settings_threads" />
 
     <fragment
         android:id="@+id/progressFragment"

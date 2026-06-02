@@ -146,7 +146,16 @@ class TaskOrchestrator(
                     return@launch
                 }
                 val options = settings.toBurnOptions()
-                taskRepository.update(task.copy(processingStartedAt = System.currentTimeMillis()))
+                // Preserve the cost-time shown to the user: extract + transcribe
+                // already accumulated some elapsed time, frozen at task.updatedAt
+                // while we sat in Editing. Shift processingStartedAt back by that
+                // amount so (now - start) immediately equals the prior cost and
+                // keeps ticking from there. Without this we'd snap back to 0 when
+                // the burn step begins.
+                val now = System.currentTimeMillis()
+                val priorCost = task.processingStartedAt
+                    ?.let { (task.updatedAt - it).coerceAtLeast(0L) } ?: 0L
+                taskRepository.update(task.copy(processingStartedAt = now - priorCost))
                 runBurn(taskId, source, srtFile, taskDir, task.video.displayName, task.video.durationMs, options)
             } finally {
                 jobs.remove(taskId)
@@ -285,13 +294,15 @@ class TaskOrchestrator(
         )
     }
 
-    // Use every online core the device exposes for whisper. ggml is fully
-    // compute-bound and scales near-linearly with threads on big.LITTLE arm64
-    // up to the physical core count; oversubscription beyond availableProcessors
-    // hurts. availableProcessors() reflects currently-online cores at call time,
-    // which is what we want — read once when transcription kicks off.
-    private fun whisperThreadCount(): Int =
-        Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+    // ggml is compute-bound and scales near-linearly up to the physical core
+    // count; going beyond availableProcessors() oversubscribes and hurts.
+    // `requested == 0` means Auto: use every online core. A positive value is
+    // honored but clamped to the device max so a stale persisted value can't
+    // overshoot a phone with fewer cores.
+    private fun whisperThreadCount(requested: Int): Int {
+        val max = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+        return if (requested <= 0) max else requested.coerceIn(1, max)
+    }
 
     private fun hasEnoughSpace(dir: File?, neededBytes: Long): Boolean {
         val target = dir ?: return true
@@ -318,7 +329,7 @@ class TaskOrchestrator(
             language = settings.language.whisperCode,
             translate = false,
             initialPrompt = settings.language.initialPrompt,
-            nThreads = whisperThreadCount(),
+            nThreads = whisperThreadCount(settings.threadCount),
         )
 
         var failed = false

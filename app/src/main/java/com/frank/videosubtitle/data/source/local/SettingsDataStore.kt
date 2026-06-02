@@ -76,6 +76,11 @@ class SettingsDataStore(context: Context) {
     suspend fun setMediaBackend(backend: MediaBackend) = store.edit {
         it[KEY_MEDIA_BACKEND] = backend.name
     }
+    suspend fun setThreadCount(value: Int) = store.edit {
+        // 0 = Auto. Positive values are upper-bounded at runtime against the
+        // device's actual core count, so we don't pin a max here.
+        it[KEY_THREAD_COUNT] = value.coerceAtLeast(0)
+    }
 
     private fun Preferences.toAppSettings(): AppSettings = AppSettings(
         model = readEnum(KEY_MODEL, WhisperModel.Base),
@@ -102,6 +107,7 @@ class SettingsDataStore(context: Context) {
         translateToChinese = this[KEY_TRANSLATE_ZH] ?: true,
         translationProvider = readEnum(KEY_TRANSLATION_PROVIDER, TranslationProvider.MlKit),
         mediaBackend = readEnum(KEY_MEDIA_BACKEND, MediaBackend.Ffmpeg),
+        threadCount = (this[KEY_THREAD_COUNT] ?: AppSettings.THREAD_COUNT_AUTO).coerceAtLeast(0),
     )
 
     private inline fun <reified T : Enum<T>> Preferences.readEnum(
@@ -132,5 +138,6 @@ class SettingsDataStore(context: Context) {
         private val KEY_TRANSLATE_ZH = booleanPreferencesKey("translate_to_chinese")
         private val KEY_TRANSLATION_PROVIDER = stringPreferencesKey("translation_provider")
         private val KEY_MEDIA_BACKEND = stringPreferencesKey("media_backend")
+        private val KEY_THREAD_COUNT = intPreferencesKey("thread_count")
     }
 }

@@ -189,6 +189,16 @@
     <string name="settings_preset_slow">Slow (high quality)</string>
     <string name="settings_soft_subtitles">Prefer soft subtitles (mp4 output)</string>
     <string name="settings_soft_subtitles_hint">Soft subtitles preserve the original video and overlay at playback. Player must support mov_text.</string>
+    <string name="settings_section_threads">CPU threads</string>
+    <string name="settings_summary_threads_auto">Auto (%1$d cores)</string>
+    <string name="settings_summary_threads_count">%1$d / %2$d threads</string>
+    <string name="settings_threads_label">Transcription threads</string>
+    <string name="settings_threads_auto">Auto</string>
+    <string name="settings_threads_value_auto">Auto (%1$d cores)</string>
+    <string name="settings_threads_value_count">%1$d / %2$d threads</string>
+    <string name="settings_threads_value_auto_short">Auto</string>
+    <string name="settings_threads_value_count_short">%1$d</string>
+    <string name="settings_threads_hint">Used for Whisper transcription. More threads run faster but increase heat and battery use. Under sustained load the device may thermally throttle — fewer threads can be steadier in that case.</string>
     <string name="settings_section_cache">Cache</string>
     <string name="settings_clear_cache">Clear task cache</string>
     <string name="settings_clear_cache_hint">Removes intermediate files (audio, subtitle drafts, temp videos). Downloaded models are kept.</string>

@@ -36,6 +36,7 @@ interface SettingsRepository {
     suspend fun setTranslateToChinese(enabled: Boolean)
     suspend fun setTranslationProvider(provider: TranslationProvider)
     suspend fun setMediaBackend(backend: MediaBackend)
+    suspend fun setThreadCount(value: Int)
 }
 
 class DefaultSettingsRepository(
@@ -102,5 +103,8 @@ class DefaultSettingsRepository(
     }
     override suspend fun setMediaBackend(backend: MediaBackend) {
         dataStore.setMediaBackend(backend)
+    }
+    override suspend fun setThreadCount(value: Int) {
+        dataStore.setThreadCount(value)
     }
 }

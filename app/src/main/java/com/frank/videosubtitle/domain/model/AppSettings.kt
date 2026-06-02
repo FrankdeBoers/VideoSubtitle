@@ -30,6 +30,12 @@ data class AppSettings(
     val translateToChinese: Boolean = true,
     val translationProvider: TranslationProvider = TranslationProvider.MlKit,
     val mediaBackend: MediaBackend = MediaBackend.Ffmpeg,
+    /**
+     * Whisper transcription thread count. [THREAD_COUNT_AUTO] means "use every
+     * online CPU core at task kick-off"; a positive value is clamped at the
+     * orchestrator to `[1, availableProcessors()]`.
+     */
+    val threadCount: Int = THREAD_COUNT_AUTO,
 ) {
     companion object {
         const val MIN_FONT_SIZE = 16
@@ -43,6 +49,7 @@ data class AppSettings(
         const val MIN_BG_OPACITY = 0
         const val MAX_BG_OPACITY = 100
         const val DEFAULT_BG_OPACITY = 50
+        const val THREAD_COUNT_AUTO = 0
     }
 }
 

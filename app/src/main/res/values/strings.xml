@@ -189,6 +189,16 @@
     <string name="settings_preset_slow">高质量 (slow)</string>
     <string name="settings_soft_subtitles">优先软字幕（mp4 输出）</string>
     <string name="settings_soft_subtitles_hint">软字幕保留原视频，播放时叠加。播放器需支持 mov_text。</string>
+    <string name="settings_section_threads">CPU 线程数</string>
+    <string name="settings_summary_threads_auto">自动（%1$d 核）</string>
+    <string name="settings_summary_threads_count">%1$d / %2$d 线程</string>
+    <string name="settings_threads_label">转写线程</string>
+    <string name="settings_threads_auto">自动</string>
+    <string name="settings_threads_value_auto">自动（%1$d 核）</string>
+    <string name="settings_threads_value_count">%1$d / %2$d 线程</string>
+    <string name="settings_threads_value_auto_short">自动</string>
+    <string name="settings_threads_value_count_short">%1$d</string>
+    <string name="settings_threads_hint">用于 Whisper 转写。线程越多速度越快，但发热与功耗会上升。设备长时间高负载可能因过热降频，那时减少线程反而更稳。</string>
     <string name="settings_section_cache">缓存</string>
     <string name="settings_clear_cache">清理任务缓存</string>
     <string name="settings_clear_cache_hint">删除已生成的中间文件（音频/字幕草稿/临时视频），不影响已下载模型。</string>

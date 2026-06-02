@@ -90,6 +90,7 @@ class SettingsViewModel(
         viewModelScope.launch { settings.setTranslationProvider(provider) }
     fun setMediaBackend(backend: MediaBackend) =
         viewModelScope.launch { settings.setMediaBackend(backend) }
+    fun setThreadCount(value: Int) = viewModelScope.launch { settings.setThreadCount(value) }
 
     fun setBaiduCreds(creds: BaiduCreds) {
         credentialsStore.setBaidu(creds)
