@@ -164,6 +164,12 @@ class SettingsViewModel(
                 runCatching { File(cacheDir, "tasks").deleteRecursively() }
                     .onFailure { Timber.e(it, "clearCache failed") }
             }
+            // Once the on-disk task dirs are gone, every Room row's cachedPath
+            // points at a missing file. Wipe the rows too so the home list
+            // doesn't show ghost entries that 404 the moment the user taps them.
+            // observeAll() will emit an empty list and the RecyclerView clears.
+            runCatching { taskRepository.deleteAll() }
+                .onFailure { Timber.e(it, "clearCache: deleteAll tasks failed") }
             _effects.trySend(Effect.CacheCleared)
         }
     }

@@ -18,6 +18,7 @@ interface TaskRepository {
     suspend fun insert(task: TaskState)
     suspend fun update(task: TaskState)
     suspend fun delete(id: String)
+    suspend fun deleteAll()
 
     /**
      * Sweep tasks left in an in-progress stage by a process kill. Inspect the
@@ -51,6 +52,10 @@ class DefaultTaskRepository(
 
     override suspend fun delete(id: String) {
         dao.deleteById(id)
+    }
+
+    override suspend fun deleteAll() {
+        dao.deleteAll()
     }
 
     override suspend fun recoverInterrupted() {
