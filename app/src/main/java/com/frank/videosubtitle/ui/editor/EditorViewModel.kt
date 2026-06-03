@@ -81,6 +81,11 @@ class EditorViewModel(
         val updated = state.segments.toMutableList().apply {
             this[index] = seg.copy(text = cleaned)
         }
+        // The user has actively engaged with the subtitles — supersede any
+        // pending auto-burn timer the orchestrator armed when this task
+        // entered Editing, otherwise their edits would be discarded by a
+        // burn run reading the on-disk SRT before [save] runs.
+        orchestrator.cancelAutoBurn(taskId)
         _uiState.update { it.copy(segments = updated, isDirty = true) }
     }
 
@@ -97,6 +102,8 @@ class EditorViewModel(
         val updated = state.segments.toMutableList().apply {
             this[index] = seg.copy(startMs = startMs, endMs = endMs)
         }
+        // See updateText: edits supersede the auto-burn grace timer.
+        orchestrator.cancelAutoBurn(taskId)
         _uiState.update { it.copy(segments = updated, isDirty = true) }
         return null
     }
@@ -148,6 +155,8 @@ class EditorViewModel(
             _effects.trySend(EditorEffect.Toast(R.string.editor_restore_unavailable))
             return
         }
+        // Loading the original mid-grace-period is also "user is engaged".
+        orchestrator.cancelAutoBurn(taskId)
         viewModelScope.launch {
             val segments = withContext(dispatchers.io) {
                 runCatching { SrtSerializer.readSrt(original).segments }.getOrDefault(emptyList())

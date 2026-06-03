@@ -22,6 +22,7 @@ import com.frank.videosubtitle.service.VideoProcessingService
 import com.frank.videosubtitle.util.DispatcherProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
@@ -54,6 +55,13 @@ class TaskOrchestrator(
 
     private val jobs = ConcurrentHashMap<String, Job>()
 
+    // Pending "auto-burn after N seconds in Editing" timers, separate from
+    // [jobs] so a manual `startBurn` arriving during the grace period isn't
+    // blocked by the timer's coroutine sitting in the same slot. Keyed by
+    // taskId; cancelled when the user takes any action that supersedes the
+    // timer (manual burn / cancel / starts editing).
+    private val autoBurnJobs = ConcurrentHashMap<String, Job>()
+
     // Whisper inference is CPU-bound and uses ~4 internal threads per call;
     // each open context also keeps a full copy of the model (75–466 MB) in
     // RAM. Running it concurrently across tasks oversubscribes the CPU,
@@ -65,6 +73,13 @@ class TaskOrchestrator(
     private companion object {
         const val DEFAULT_OUTLINE_WIDTH = 2
         const val TARGET_LANG_CHINESE = "zh"
+
+        // Grace period after a task enters [TaskStage.Editing] before we
+        // auto-trigger the burn step. Lets a user who just wants the
+        // default subtitles hands-off, while still giving editors a
+        // chance to tap Export (or modify a segment, which cancels the
+        // timer via [cancelAutoBurn]).
+        const val AUTO_BURN_DELAY_MS = 10_000L
     }
 
     fun start(taskId: String, autoBurn: Boolean = false) {
@@ -106,11 +121,11 @@ class TaskOrchestrator(
                 if (!runTranscription(taskId, audioFile, srtFile, model, modelFile, settings)) return@launch
                 if (!runTranslation(taskId, srtFile, settings)) return@launch
 
+                val afterTranscribe = taskRepository.find(taskId) ?: return@launch
+                val readyForBurn = afterTranscribe.stage is TaskStage.Editing &&
+                    srtFile.exists() && srtFile.length() > 0L
                 if (autoBurn) {
-                    val afterTranscribe = taskRepository.find(taskId) ?: return@launch
-                    if (afterTranscribe.stage is TaskStage.Editing &&
-                        srtFile.exists() && srtFile.length() > 0L
-                    ) {
+                    if (readyForBurn) {
                         runBurn(
                             taskId = taskId,
                             source = source,
@@ -121,6 +136,12 @@ class TaskOrchestrator(
                             options = settings.toBurnOptions(),
                         )
                     }
+                } else if (readyForBurn) {
+                    // No explicit auto-burn requested by the caller, but we
+                    // still kick off a short grace timer — if the user
+                    // doesn't tap "Export" / edit anything within
+                    // AUTO_BURN_DELAY_MS, run the burn for them.
+                    scheduleAutoBurn(taskId)
                 }
             } finally {
                 jobs.remove(taskId)
@@ -129,6 +150,10 @@ class TaskOrchestrator(
     }
 
     fun startBurn(taskId: String) {
+        // Manual burn supersedes any pending auto-burn timer for the
+        // same task (otherwise the timer might fire after burn already
+        // finished and re-enter the pipeline — harmless, but noisy).
+        cancelAutoBurn(taskId)
         if (jobs[taskId]?.isActive == true) {
             Timber.d("Pipeline already running for %s", taskId)
             return
@@ -164,6 +189,7 @@ class TaskOrchestrator(
     }
 
     fun cancel(taskId: String) {
+        cancelAutoBurn(taskId)
         jobs.remove(taskId)?.cancel()
         appScope.launch(dispatchers.io) {
             val current = taskRepository.find(taskId) ?: return@launch
@@ -174,6 +200,45 @@ class TaskOrchestrator(
                 is TaskStage.Burning,
                 -> taskRepository.update(current.copy(stage = TaskStage.Failed("Cancelled")))
                 else -> Unit
+            }
+        }
+    }
+
+    /**
+     * Cancel a pending auto-burn timer for [taskId], if any. Called by:
+     *  - [startBurn] (manual confirm)
+     *  - [cancel] (user abandoned the task)
+     *  - the editor when the user starts editing a segment (signals
+     *    "I'm engaged — don't burn behind my back").
+     *
+     * Safe to call when no timer is pending; it's a no-op in that case.
+     */
+    fun cancelAutoBurn(taskId: String) {
+        autoBurnJobs.remove(taskId)?.cancel()
+    }
+
+    private fun scheduleAutoBurn(taskId: String) {
+        // Ensure we never leave a stale timer behind for the same task.
+        autoBurnJobs.remove(taskId)?.cancel()
+        Timber.d("Auto-burn armed for task %s in %dms", taskId, AUTO_BURN_DELAY_MS)
+        autoBurnJobs[taskId] = appScope.launch(dispatchers.io) {
+            try {
+                delay(AUTO_BURN_DELAY_MS)
+                val task = taskRepository.find(taskId) ?: return@launch
+                if (task.stage !is TaskStage.Editing) {
+                    Timber.d("Auto-burn skipped for %s — stage is %s", taskId, task.stage)
+                    return@launch
+                }
+                val srt = File(task.video.cachedPath).parentFile
+                    ?.let { File(it, "subtitle.srt") }
+                if (srt == null || !srt.exists() || srt.length() == 0L) {
+                    Timber.w("Auto-burn skipped for %s — subtitle.srt missing", taskId)
+                    return@launch
+                }
+                Timber.i("Auto-burn fired for task %s after %dms idle", taskId, AUTO_BURN_DELAY_MS)
+                startBurn(taskId)
+            } finally {
+                autoBurnJobs.remove(taskId)
             }
         }
     }
