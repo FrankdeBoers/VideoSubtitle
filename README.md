@@ -12,14 +12,15 @@ An Android app for the offline pipeline **Pick a local video → transcribe with
 
 ## Performance benchmark
 
-Measured on a Samsung Galaxy S24 Ultra with a 1:30 (1 min 30 s) source video:
+Measured on a **Samsung Galaxy S24 Ultra** (Qualcomm Snapdragon 8 Gen 3 for Galaxy, 4 nm; Adreno 750 GPU) with a **1:00 / 720p** source video. End-to-end wall-clock for the full pipeline (extract → transcribe → translate → burn):
 
-| Stage | Time |
+| Whisper model | Total time |
 | --- | --- |
-| Extract audio | ~10 s |
-| Transcribe (Whisper) | ~15 min |
-| Translate | ~20 s |
-| Burn subtitles | ~1 min |
+| `tiny` | 1:55 |
+| `base` | 3:52 |
+| `small` | 10:31 |
+
+Transcription dominates total time; extract / translate / burn together run in well under a minute on this device.
 
 ## Spec-Driven Development (how this project works)
 
