@@ -33,8 +33,7 @@
                 style="@style/SettingsGroupHeader"
                 android:text="@string/settings_compute_title" />
 
-            <RadioGroup
-                android:id="@+id/group_compute"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
@@ -71,7 +70,7 @@
                     style="@style/SettingsHint"
                     android:layout_marginStart="32dp"
                     android:text="@string/settings_compute_gpu_desc" />
-            </RadioGroup>
+            </LinearLayout>
 
             <TextView
                 style="@style/SettingsHint"

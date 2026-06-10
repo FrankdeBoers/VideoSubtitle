@@ -14,6 +14,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import coil3.load
 import coil3.request.crossfade
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.frank.videosubtitle.R
 import com.frank.videosubtitle.databinding.FragmentProgressBinding
 import com.frank.videosubtitle.domain.model.TaskStage
@@ -36,7 +37,18 @@ class ProgressFragment : BaseFragment<FragmentProgressBinding>(FragmentProgressB
         super.onViewCreated(view, savedInstanceState)
 
         binding.btnStart.setOnClickListener { viewModel.startPipeline() }
-        binding.btnCancel.setOnClickListener { viewModel.cancel() }
+        binding.btnCancel.setOnClickListener {
+            if (viewModel.uiState.value.running) {
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.progress_cancel_confirm_title)
+                    .setMessage(R.string.progress_cancel_confirm_message)
+                    .setNegativeButton(R.string.progress_cancel_keep_going, null)
+                    .setPositiveButton(R.string.progress_cancel_confirm_ok) { _, _ -> viewModel.cancel() }
+                    .show()
+            } else {
+                viewModel.cancel()
+            }
+        }
         binding.btnDownloadModel.setOnClickListener { viewModel.downloadModel() }
         binding.btnOpenPlayer.setOnClickListener {
             val outputPath = (viewModel.uiState.value.task?.stage as? TaskStage.Done)?.outputPath

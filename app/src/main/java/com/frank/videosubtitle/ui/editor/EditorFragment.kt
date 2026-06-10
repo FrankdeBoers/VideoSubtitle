@@ -12,7 +12,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.snackbar.Snackbar
 import com.frank.videosubtitle.R
 import com.frank.videosubtitle.data.source.local.SrtSerializer
 import com.frank.videosubtitle.databinding.FragmentEditorBinding
@@ -43,6 +46,7 @@ class EditorFragment : BaseFragment<FragmentEditorBinding>(FragmentEditorBinding
         )
         binding.segments.layoutManager = LinearLayoutManager(requireContext())
         binding.segments.adapter = adapter
+        attachSegmentGestures()
 
         binding.toolbar.setNavigationOnClickListener { handleBack() }
         binding.toolbar.setOnMenuItemClickListener { item ->
@@ -95,7 +99,41 @@ class EditorFragment : BaseFragment<FragmentEditorBinding>(FragmentEditorBinding
                 Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
             }
             EditorEffect.NavigateBack -> findNavController().navigateUp()
+            is EditorEffect.UndoSnackbar -> {
+                Snackbar.make(binding.root, effect.messageRes, Snackbar.LENGTH_LONG)
+                    .setAction(R.string.editor_undo_action) {
+                        viewModel.restoreSnapshot(effect.previous)
+                    }
+                    .show()
+            }
         }
+    }
+
+    private fun attachSegmentGestures() {
+        val callback = object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN,
+            ItemTouchHelper.START or ItemTouchHelper.END,
+        ) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder,
+            ): Boolean {
+                val from = viewHolder.bindingAdapterPosition
+                val to = target.bindingAdapterPosition
+                if (from == RecyclerView.NO_POSITION || to == RecyclerView.NO_POSITION) return false
+                viewModel.moveSegment(from, to)
+                return true
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val pos = viewHolder.bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) viewModel.delete(pos)
+            }
+
+            override fun isLongPressDragEnabled(): Boolean = true
+        }
+        ItemTouchHelper(callback).attachToRecyclerView(binding.segments)
     }
 
     private fun handleBack() {
@@ -117,7 +155,16 @@ class EditorFragment : BaseFragment<FragmentEditorBinding>(FragmentEditorBinding
     }
 
     private fun confirmRestore() {
-        viewModel.restoreOriginal()
+        if (!viewModel.uiState.value.originalAvailable) {
+            viewModel.restoreOriginal()
+            return
+        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.editor_restore_confirm_title)
+            .setMessage(R.string.editor_restore_confirm_message)
+            .setNegativeButton(R.string.editor_restore_confirm_cancel, null)
+            .setPositiveButton(R.string.editor_restore_confirm_ok) { _, _ -> viewModel.restoreOriginal() }
+            .show()
     }
 
     private fun showTextDialog(position: Int) {

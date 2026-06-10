@@ -12,7 +12,7 @@ import com.frank.videosubtitle.domain.engine.SubtitleDisplay
  * without a first-run tour.
  */
 data class AppSettings(
-    val model: WhisperModel = WhisperModel.Base,
+    val model: WhisperModel = WhisperModel.Tiny,
     val language: LanguagePref = LanguagePref.Auto,
     val burnMode: BurnMode = BurnMode.HARD,
     val preset: VideoPreset = VideoPreset.Medium,

@@ -46,14 +46,16 @@ class SettingsOutputFragment :
             viewModel.setBurnMode(if (checked) BurnMode.SOFT else BurnMode.HARD)
         }
 
-        binding.groupMediaBackend.setOnCheckedChangeListener { _, checkedId ->
-            if (suppressCallbacks) return@setOnCheckedChangeListener
-            val choice = if (checkedId == R.id.radio_android_media) {
-                MediaBackend.AndroidMedia
-            } else {
-                MediaBackend.Ffmpeg
+        val backendRadios = listOf(
+            binding.radioFfmpeg to MediaBackend.Ffmpeg,
+            binding.radioAndroidMedia to MediaBackend.AndroidMedia,
+        )
+        backendRadios.forEach { (button, backend) ->
+            button.setOnClickListener {
+                if (suppressCallbacks) return@setOnClickListener
+                backendRadios.forEach { (other, _) -> other.isChecked = other === button }
+                viewModel.setMediaBackend(backend)
             }
-            viewModel.setMediaBackend(choice)
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -68,13 +70,8 @@ class SettingsOutputFragment :
         try {
             binding.dropdownPreset.setText(requireContext().presetLabel(s.preset), false)
             binding.switchSoft.isChecked = s.burnMode == BurnMode.SOFT
-            val checkedId = when (s.mediaBackend) {
-                MediaBackend.AndroidMedia -> R.id.radio_android_media
-                MediaBackend.Ffmpeg -> R.id.radio_ffmpeg
-            }
-            if (binding.groupMediaBackend.checkedRadioButtonId != checkedId) {
-                binding.groupMediaBackend.check(checkedId)
-            }
+            binding.radioFfmpeg.isChecked = s.mediaBackend == MediaBackend.Ffmpeg
+            binding.radioAndroidMedia.isChecked = s.mediaBackend == MediaBackend.AndroidMedia
         } finally {
             suppressCallbacks = false
         }

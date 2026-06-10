@@ -23,6 +23,12 @@ enum class WhisperModel(
     val width: Int,
     /** Number of attention heads. */
     val heads: Int,
+    /**
+     * Path under `app/src/main/assets/` if this model is shipped inside the APK,
+     * else null. Bundled models are materialized to filesDir on first use so
+     * users don't have to download them — see [com.frank.videosubtitle.data.repository.DefaultModelRepository].
+     */
+    val bundledAssetPath: String? = null,
 ) {
     Tiny(
         fileName = "ggml-tiny.bin",
@@ -34,6 +40,7 @@ enum class WhisperModel(
         layers = 4,
         width = 384,
         heads = 6,
+        bundledAssetPath = "models/ggml-tiny.bin",
     ),
     Base(
         fileName = "ggml-base.bin",

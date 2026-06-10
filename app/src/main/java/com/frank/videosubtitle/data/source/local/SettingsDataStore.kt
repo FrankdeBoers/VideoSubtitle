@@ -85,7 +85,7 @@ class SettingsDataStore(context: Context) {
     suspend fun setComputeMode(mode: ComputeMode) = store.edit { it[KEY_COMPUTE_MODE] = mode.name }
 
     private fun Preferences.toAppSettings(): AppSettings = AppSettings(
-        model = readEnum(KEY_MODEL, WhisperModel.Base),
+        model = readEnum(KEY_MODEL, WhisperModel.Tiny),
         language = readEnum(KEY_LANGUAGE, LanguagePref.Auto),
         burnMode = readEnum(KEY_BURN_MODE, BurnMode.HARD),
         preset = readEnum(KEY_PRESET, VideoPreset.Medium),

@@ -47,14 +47,17 @@ class SettingsComputeFragment :
             getString(R.string.settings_compute_gpu_unsupported)
         }
 
-        binding.groupCompute.setOnCheckedChangeListener { _, checkedId ->
-            if (suppressCallbacks) return@setOnCheckedChangeListener
-            val choice = when (checkedId) {
-                R.id.radio_compute_cpu -> ComputeMode.Cpu
-                R.id.radio_compute_gpu -> ComputeMode.Gpu
-                else -> ComputeMode.Auto
+        val radios = listOf(
+            binding.radioComputeAuto to ComputeMode.Auto,
+            binding.radioComputeCpu to ComputeMode.Cpu,
+            binding.radioComputeGpu to ComputeMode.Gpu,
+        )
+        radios.forEach { (button, mode) ->
+            button.setOnClickListener {
+                if (suppressCallbacks) return@setOnClickListener
+                radios.forEach { (other, _) -> other.isChecked = other === button }
+                viewModel.setComputeMode(mode)
             }
-            viewModel.setComputeMode(choice)
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -70,16 +73,11 @@ class SettingsComputeFragment :
         // without rewriting the prefs — the engine's runtime resolver already
         // handles the real fallback.
         val effective = if (s.computeMode == ComputeMode.Gpu && !gpuSupported) ComputeMode.Auto else s.computeMode
-        val checkedId = when (effective) {
-            ComputeMode.Auto -> R.id.radio_compute_auto
-            ComputeMode.Cpu -> R.id.radio_compute_cpu
-            ComputeMode.Gpu -> R.id.radio_compute_gpu
-        }
         suppressCallbacks = true
         try {
-            if (binding.groupCompute.checkedRadioButtonId != checkedId) {
-                binding.groupCompute.check(checkedId)
-            }
+            binding.radioComputeAuto.isChecked = effective == ComputeMode.Auto
+            binding.radioComputeCpu.isChecked = effective == ComputeMode.Cpu
+            binding.radioComputeGpu.isChecked = effective == ComputeMode.Gpu
         } finally {
             suppressCallbacks = false
         }

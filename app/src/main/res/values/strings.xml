@@ -34,6 +34,14 @@
     <string name="editor_save">保存</string>
     <string name="editor_restore">恢复原文</string>
     <string name="editor_restore_unavailable">无原文可恢复</string>
+    <string name="editor_restore_confirm_title">恢复为识别原文？</string>
+    <string name="editor_restore_confirm_message">所有手动修改将丢失，此操作无法撤销。</string>
+    <string name="editor_restore_confirm_ok">恢复</string>
+    <string name="editor_restore_confirm_cancel">取消</string>
+    <string name="editor_edit_undo">已修改</string>
+    <string name="editor_delete_undo">已删除字幕段</string>
+    <string name="editor_reorder_undo">已调整顺序</string>
+    <string name="editor_undo_action">撤销</string>
     <string name="editor_segment_index">#%1$d</string>
     <string name="editor_dialog_text_title">编辑文本</string>
     <string name="editor_dialog_time_title">编辑时间轴</string>
@@ -60,6 +68,10 @@
     <string name="progress_edit_subtitle">编辑字幕</string>
     <string name="progress_regenerate_video">重新生成视频</string>
     <string name="progress_burn_failed_open">无法打开播放器</string>
+    <string name="progress_cancel_confirm_title">取消正在进行的任务？</string>
+    <string name="progress_cancel_confirm_message">已识别的字幕和提取的音频会保留，可稍后继续。</string>
+    <string name="progress_cancel_confirm_ok">取消任务</string>
+    <string name="progress_cancel_keep_going">继续处理</string>
 
     <!-- Service / notifications -->
     <string name="notif_channel_pipeline">字幕处理</string>

@@ -13,4 +13,13 @@ data class EditorUiState(
 sealed interface EditorEffect {
     data class Toast(val messageRes: Int, val arg: String? = null) : EditorEffect
     data object NavigateBack : EditorEffect
+
+    /**
+     * One-shot snackbar requesting that the previous segments list be restored.
+     * Emitted after any reversible mutation (text/time edit, delete, reorder).
+     */
+    data class UndoSnackbar(
+        val messageRes: Int,
+        val previous: List<SubtitleSegment>,
+    ) : EditorEffect
 }

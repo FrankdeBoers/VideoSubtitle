@@ -78,7 +78,8 @@ class EditorViewModel(
         val seg = state.segments.getOrNull(index) ?: return
         val cleaned = newText.trim()
         if (cleaned == seg.text) return
-        val updated = state.segments.toMutableList().apply {
+        val previous = state.segments
+        val updated = previous.toMutableList().apply {
             this[index] = seg.copy(text = cleaned)
         }
         // The user has actively engaged with the subtitles — supersede any
@@ -87,6 +88,7 @@ class EditorViewModel(
         // burn run reading the on-disk SRT before [save] runs.
         orchestrator.cancelAutoBurn(taskId)
         _uiState.update { it.copy(segments = updated, isDirty = true) }
+        _effects.trySend(EditorEffect.UndoSnackbar(R.string.editor_edit_undo, previous))
     }
 
     /** Returns null on success, or a string-res id describing why the edit was rejected. */
@@ -99,13 +101,43 @@ class EditorViewModel(
         if (prev != null && startMs < prev.endMs) return R.string.editor_validation_time_overlap
         if (next != null && endMs > next.startMs) return R.string.editor_validation_time_overlap
         if (seg.startMs == startMs && seg.endMs == endMs) return null
-        val updated = state.segments.toMutableList().apply {
+        val previous = state.segments
+        val updated = previous.toMutableList().apply {
             this[index] = seg.copy(startMs = startMs, endMs = endMs)
         }
         // See updateText: edits supersede the auto-burn grace timer.
         orchestrator.cancelAutoBurn(taskId)
         _uiState.update { it.copy(segments = updated, isDirty = true) }
+        _effects.trySend(EditorEffect.UndoSnackbar(R.string.editor_edit_undo, previous))
         return null
+    }
+
+    fun delete(index: Int) {
+        val state = _uiState.value
+        if (index !in state.segments.indices) return
+        val previous = state.segments
+        val updated = previous.toMutableList().apply { removeAt(index) }
+        orchestrator.cancelAutoBurn(taskId)
+        _uiState.update { it.copy(segments = updated, isDirty = true) }
+        _effects.trySend(EditorEffect.UndoSnackbar(R.string.editor_delete_undo, previous))
+    }
+
+    fun moveSegment(from: Int, to: Int) {
+        val state = _uiState.value
+        if (from == to || from !in state.segments.indices || to !in state.segments.indices) return
+        val previous = state.segments
+        val updated = previous.toMutableList().apply {
+            val seg = removeAt(from)
+            add(to, seg)
+        }
+        orchestrator.cancelAutoBurn(taskId)
+        _uiState.update { it.copy(segments = updated, isDirty = true) }
+        _effects.trySend(EditorEffect.UndoSnackbar(R.string.editor_reorder_undo, previous))
+    }
+
+    /** Restore a snapshot captured before a mutation — invoked from the Undo Snackbar action. */
+    fun restoreSnapshot(snapshot: List<SubtitleSegment>) {
+        _uiState.update { it.copy(segments = snapshot, isDirty = true) }
     }
 
     fun save(onComplete: (saved: Boolean) -> Unit = {}) {

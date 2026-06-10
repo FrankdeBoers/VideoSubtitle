@@ -81,7 +81,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:hint="@string/settings_translate_baidu_secret"
-                    app:passwordToggleEnabled="true">
+                    app:endIconMode="password_toggle">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/edit_baidu_secret"
                         android:layout_width="match_parent"
@@ -114,7 +114,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:hint="@string/settings_translate_youdao_appsecret"
-                    app:passwordToggleEnabled="true">
+                    app:endIconMode="password_toggle">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/edit_youdao_appsecret"
                         android:layout_width="match_parent"
@@ -147,7 +147,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:hint="@string/settings_translate_tencent_secretkey"
-                    app:passwordToggleEnabled="true">
+                    app:endIconMode="password_toggle">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/edit_tencent_secretkey"
                         android:layout_width="match_parent"
@@ -180,7 +180,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:hint="@string/settings_translate_microsoft_key"
-                    app:passwordToggleEnabled="true">
+                    app:endIconMode="password_toggle">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/edit_microsoft_key"
                         android:layout_width="match_parent"

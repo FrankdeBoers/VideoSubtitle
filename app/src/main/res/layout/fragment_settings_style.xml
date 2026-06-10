@@ -138,7 +138,7 @@
                     <TextView
                         style="@style/SettingsLabel"
                         android:text="@string/settings_style_section_position"
-                        android:textSize="16dp"
+                        android:textSize="16sp"
                         android:textStyle="bold" />
 
                     <com.google.android.material.button.MaterialButtonToggleGroup
@@ -226,7 +226,7 @@
                     <TextView
                         style="@style/SettingsLabel"
                         android:text="@string/settings_style_section_main"
-                        android:textSize="16dp"
+                        android:textSize="16sp"
                         android:textStyle="bold" />
 
                     <LinearLayout style="@style/SettingsSliderRow">
@@ -336,7 +336,7 @@
                     <TextView
                         style="@style/SettingsLabel"
                         android:text="@string/settings_style_section_translated"
-                        android:textSize="16dp"
+                        android:textSize="16sp"
                         android:textStyle="bold" />
 
                     <LinearLayout style="@style/SettingsSliderRow">

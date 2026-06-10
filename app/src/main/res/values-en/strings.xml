@@ -34,6 +34,14 @@
     <string name="editor_save">Save</string>
     <string name="editor_restore">Restore original</string>
     <string name="editor_restore_unavailable">No original to restore</string>
+    <string name="editor_restore_confirm_title">Restore the original transcript?</string>
+    <string name="editor_restore_confirm_message">All manual edits will be lost. This action cannot be undone.</string>
+    <string name="editor_restore_confirm_ok">Restore</string>
+    <string name="editor_restore_confirm_cancel">Cancel</string>
+    <string name="editor_edit_undo">Edit applied</string>
+    <string name="editor_delete_undo">Segment deleted</string>
+    <string name="editor_reorder_undo">Order updated</string>
+    <string name="editor_undo_action">Undo</string>
     <string name="editor_segment_index">#%1$d</string>
     <string name="editor_dialog_text_title">Edit text</string>
     <string name="editor_dialog_time_title">Edit timing</string>
@@ -60,6 +68,10 @@
     <string name="progress_edit_subtitle">Edit subtitle</string>
     <string name="progress_regenerate_video">Regenerate video</string>
     <string name="progress_burn_failed_open">No player available</string>
+    <string name="progress_cancel_confirm_title">Cancel the running task?</string>
+    <string name="progress_cancel_confirm_message">Already-transcribed subtitles and extracted audio are kept; you can resume later.</string>
+    <string name="progress_cancel_confirm_ok">Cancel task</string>
+    <string name="progress_cancel_keep_going">Keep processing</string>
 
     <!-- Service / notifications -->
     <string name="notif_channel_pipeline">Subtitle pipeline</string>

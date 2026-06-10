@@ -104,8 +104,6 @@
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:minWidth="0dp"
-                android:minHeight="0dp"
                 tools:text="@string/model_download" />
         </LinearLayout>
 

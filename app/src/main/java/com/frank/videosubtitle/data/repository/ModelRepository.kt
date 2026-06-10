@@ -21,6 +21,15 @@ interface ModelRepository {
     fun isAvailable(model: WhisperModel): Boolean
 
     /**
+     * Materialize any models bundled inside the APK (see
+     * [WhisperModel.bundledAssetPath]) to filesDir. Idempotent and cheap on
+     * subsequent calls — only does I/O the first time. Safe to call on a
+     * background dispatcher at app start so first-call [isAvailable] from a
+     * ViewModel doesn't block on a ~78 MB asset copy.
+     */
+    fun prefetchBundled()
+
+    /**
      * Stream the model from HuggingFace into [fileFor]. Resumes from the
      * `.part` file if present (HTTP Range). Verifies SHA-256 on completion;
      * a mismatch deletes the file and throws [ModelChecksumException].

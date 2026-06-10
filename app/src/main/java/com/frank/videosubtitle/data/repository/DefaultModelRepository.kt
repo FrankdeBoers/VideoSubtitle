@@ -17,7 +17,7 @@ import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 class DefaultModelRepository(
-    context: Context,
+    private val context: Context,
     private val client: OkHttpClient = defaultClient(),
 ) : ModelRepository {
 
@@ -27,7 +27,52 @@ class DefaultModelRepository(
 
     override fun isAvailable(model: WhisperModel): Boolean {
         val f = fileFor(model)
-        return f.exists() && f.length() == model.sizeBytes
+        if (f.exists() && f.length() == model.sizeBytes) return true
+        // Model may be shipped inside the APK; materialize it once to filesDir
+        // so whisper.cpp can mmap a real path. After this, the cached copy is
+        // indistinguishable from a downloaded one.
+        return materializeBundledAsset(model)
+    }
+
+    override fun prefetchBundled() {
+        WhisperModel.values()
+            .filter { it.bundledAssetPath != null }
+            .forEach { materializeBundledAsset(it) }
+    }
+
+    /**
+     * If [model] has [WhisperModel.bundledAssetPath] set, copy the asset to
+     * [modelsDir] (atomic rename via .part). Returns true iff the file is now
+     * present at the pinned size. Safe to call concurrently — losing copies
+     * just delete their partial file.
+     */
+    private fun materializeBundledAsset(model: WhisperModel): Boolean {
+        val assetPath = model.bundledAssetPath ?: return false
+        val finalFile = fileFor(model)
+        if (finalFile.exists() && finalFile.length() == model.sizeBytes) return true
+
+        val partFile = File(modelsDir, "${model.fileName}.bundled.part")
+        try {
+            context.assets.open(assetPath).use { input ->
+                partFile.outputStream().use { output -> input.copyTo(output) }
+            }
+            if (partFile.length() != model.sizeBytes) {
+                Timber.w("Bundled asset %s size mismatch: got %d, expected %d", assetPath, partFile.length(), model.sizeBytes)
+                partFile.delete()
+                return false
+            }
+            if (!partFile.renameTo(finalFile)) {
+                // Another caller may have raced us to finalize.
+                partFile.delete()
+                return finalFile.exists() && finalFile.length() == model.sizeBytes
+            }
+            Timber.i("Materialized bundled model %s from assets/%s (%d bytes)", model.fileName, assetPath, finalFile.length())
+            return true
+        } catch (t: Throwable) {
+            Timber.e(t, "Failed to materialize bundled asset %s", assetPath)
+            partFile.delete()
+            return false
+        }
     }
 
     override fun download(model: WhisperModel): Flow<ModelDownloadEvent> = callbackFlow {

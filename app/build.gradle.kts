@@ -76,6 +76,12 @@ android {
         }
     }
 
+    // Whisper GGML weights bundled under assets/models/ are already-binary tensors —
+    // letting aapt deflate them bloats install time and prevents mmap from the APK.
+    androidResources {
+        noCompress += listOf("bin")
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
